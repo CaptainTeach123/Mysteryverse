@@ -36,10 +36,12 @@
   function face(c, size) {
     const name = typeof c === "string" ? c : c.name;
     const src = (c && typeof c === "object") ? c.portrait : null;
-    const img = src
-      ? `<img class="pface" src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="this.remove()"/>`
-      : "";
-    return `<div class="facewrap">${A.portrait(name, size)}${img}</div>`;
+    if (!src) return `<div class="facewrap">${A.portrait(name, size)}</div>`;
+    // Photo present: keep the generated SVG hidden underneath so it never flashes
+    // before the painting loads; only reveal it if the image genuinely fails.
+    return `<div class="facewrap has-photo">${A.portrait(name, size)}`
+      + `<img class="pface" src="${esc(src)}" alt="${esc(name)}" decoding="async"`
+      + ` onerror="var w=this.parentNode; this.remove(); if(w) w.classList.remove('has-photo')"/></div>`;
   }
 
   // A mid-century "atomic" starburst — the wax seal on the assignment letter.
