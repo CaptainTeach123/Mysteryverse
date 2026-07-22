@@ -474,6 +474,7 @@ class Game:
     # -- main loop --------------------------------------------------------
     def run(self) -> GameResult:
         self._log(type="prologue")
+        quiet = 0
         while self.day < self.max_days and len(self._living()) > 1:
             self.day += 1
             self.murder_today = None
@@ -494,6 +495,9 @@ class Game:
             self._decay_suspicion()
             if self.nightfall_hook is not None:
                 self.nightfall_hook(self, self.day)
+            quiet = 0 if self.murder_today else quiet + 1
+            if quiet >= 3:
+                break  # the scheming has burned out; the storm passes
         return self._finish()
 
     def _finish(self) -> GameResult:

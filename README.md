@@ -38,7 +38,36 @@ Mace is hunted twice (by Crane and Genevieve), and Mace and Crane hunt each
 other — that mutual pull is where the first blood usually falls. Only Blackwood,
 the host, knows the manor's hidden passages.
 
-## Three ways to play
+## Play in the browser (zero-cost website)
+
+There's a full graphical version in [`docs/`](docs/): the deterministic engine
+ported to JavaScript, flat mid-century SVG art for every guest and room, and the
+whole choose-your-own-adventure — pick a guest, choose their day from a menu of
+options with forecast outcomes, and get an illustrated end-of-day write-up in
+their voice.
+
+It is **pure static files** — no server, no build step, **no AI calls at
+run-time** — so it runs entirely in the visitor's browser and costs nothing to
+host, however many people play. Serve `docs/` on Cloudflare Pages, GitHub Pages,
+or any static host:
+
+```bash
+# local preview
+cd docs && python3 -m http.server 8000    # then open http://localhost:8000
+```
+
+For a single self-contained file (one `.html` with everything inlined — handy
+for a strict-CSP embed):
+
+```bash
+node web/build.mjs dist/ravenhollow.html
+```
+
+The JavaScript engine is a faithful port of the Python: it reproduces the
+canonical night death-for-death (verified in `web/`), so the site and the CLI
+tell the same story.
+
+## Three ways to play (command line)
 
 ```bash
 python -m mysteryverse                  # watch a night play itself out
