@@ -30,6 +30,36 @@
   const localeName = () => MV.world.locale.name;
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
 
+  // A character face: the hand-painted portrait when one exists, laid over the
+  // generated SVG so a missing file falls back cleanly (onerror strips the img).
+  // Accepts a cast object (which may carry a `portrait` path) or a bare name.
+  function face(c, size) {
+    const name = typeof c === "string" ? c : c.name;
+    const src = (c && typeof c === "object") ? c.portrait : null;
+    const img = src
+      ? `<img class="pface" src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="this.remove()"/>`
+      : "";
+    return `<div class="facewrap">${A.portrait(name, size)}${img}</div>`;
+  }
+
+  // A mid-century "atomic" starburst — the wax seal on the assignment letter.
+  const starburst = (() => {
+    const spokes = 16, cx = 50, cy = 50;
+    let g = "";
+    for (let i = 0; i < spokes; i++) {
+      const a = (i / spokes) * Math.PI * 2;
+      const long = i % 2 === 0;
+      const r1 = 11, r2 = long ? 40 : 27;
+      const x1 = cx + Math.cos(a) * r1, y1 = cy + Math.sin(a) * r1;
+      const x2 = cx + Math.cos(a) * r2, y2 = cy + Math.sin(a) * r2;
+      const dot = long ? `<circle cx="${x2.toFixed(1)}" cy="${y2.toFixed(1)}" r="2.2"/>` : "";
+      g += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"/>${dot}`;
+    }
+    return () => `<svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+      <g stroke="#3a2c10" stroke-width="2.2" stroke-linecap="round" fill="#3a2c10">${g}</g>
+      <circle cx="50" cy="50" r="9.5" fill="#3a2c10"/></svg>`;
+  })();
+
   // The late-night-bar backdrop for the collection page: a fixed layer behind
   // everything, with a scrim and drifting cigarette smoke. Lives on <body> (not
   // in #app) so it sits under the cards rather than over them.
@@ -111,7 +141,7 @@
       <section class="hero">
         <div class="art">${A.cover(MV.world.cover)}${MV.world.coverImage
           ? `<img class="coverimg" src="${esc(MV.world.coverImage)}" alt="${esc(cap(localeName()))}" onerror="this.remove()"/>`
-          : ""}</div>
+          : ""}<div class="hero-mist" aria-hidden="true"><i></i><i></i><i></i></div></div>
         <div class="hero-copy">
           <div class="kicker">A Whodunit</div>
           <h1>${esc(cap(localeName()))}</h1>
@@ -146,6 +176,9 @@
     show(`
       <div class="env-stage">
         <div class="envelope" id="env">
+          <div class="env-body" aria-hidden="true"></div>
+          <div class="env-flap" aria-hidden="true"></div>
+          <div class="seal" aria-hidden="true">${starburst()}</div>
           <div class="letter">
             <div class="letterhead">${esc(place)}</div>
             <p class="dear">Dear ${esc(given)},</p>
@@ -163,15 +196,12 @@
               opportunity all three — and live to print it.</p>
             <div class="btnrow" style="margin-top:18px"><button class="btn" id="enter" type="button">Take out your notebook</button></div>
           </div>
-          <div class="env-pocket"></div>
-          <div class="env-flap"></div>
-          <div class="wax">✦</div>
         </div>
       </div>`);
     const env = document.getElementById("env");
     on("enter", personae);
     if (reduced()) env.classList.add("open");
-    else requestAnimationFrame(() => setTimeout(() => env.classList.add("open"), 120));
+    else requestAnimationFrame(() => setTimeout(() => env.classList.add("open"), 260));
   }
 
   // =====================================================================
@@ -181,7 +211,7 @@
     const cards = MV.world.cast.map((c) => {
       const top = Object.entries(c.skills || {}).sort((a, b) => b[1] - a[1]).slice(0, 2);
       return `<article class="card">
-        <div class="pic">${A.portrait(c.name, 240)}</div>
+        <div class="pic">${face(c, 240)}</div>
         <div class="body">
           <div><h3>${esc(c.name)}</h3><div class="title">${esc(c.title)}</div></div>
           <div class="chips">${top.map(([k, v]) => `<span class="chip skill">${k} ${v}</span>`).join("")}</div>
@@ -211,7 +241,7 @@
     const P = (k, label) => `<div class="pill ${pillars.has(k) ? "got" : ""}">${label}</div>`;
     const heatPct = Math.min(100, Math.round((G.heat / W.HEAT_LETHAL) * 100));
     return `<aside class="side">
-      <div class="who">${A.portrait(G.journalist.name, 46)}
+      <div class="who">${face(G.journalist, 46)}
         <div><div class="nm">${esc(G.journalist.name)}</div><div class="ti">${esc(G.journalist.title)}</div></div></div>
       <div class="stat"><span class="k">The day</span><span class="v">${G.day} of ${G.deadline()}</span></div>
       <div class="stat"><span class="k">Suspects left</span><span class="v">${G.livingSuspects().length}</span></div>
@@ -386,7 +416,15 @@
   let booted = false;
   try {
     const wanted = window.MV_BOOT || new URLSearchParams(location.search).get("world");
-    if (wanted && MV.WORLDS[wanted]) { MV.useWorld(wanted); hero(); booted = true; }
+    if (wanted && MV.WORLDS[wanted]) {
+      MV.useWorld(wanted);
+      // Per-world display face — give a case its own typographic identity.
+      if (MV.world.displayFont) {
+        document.body.style.setProperty("--display",
+          `"${MV.world.displayFont}", "Futura", "Century Gothic", "Trebuchet MS", system-ui, sans-serif`);
+      }
+      hero(); booted = true;
+    }
   } catch (e) { /* file:// or no query */ }
   if (!booted) splash();
 })();
