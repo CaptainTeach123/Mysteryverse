@@ -15,7 +15,7 @@ const docs = resolve(here, "..", "docs");
 const read = (f) => readFileSync(resolve(docs, f), "utf8");
 
 const css = read("styles.css");
-const scripts = ["config.js", "worlds/midnight.js", "engine.js", "art.js", "chronicle.js", "story.js", "content.js", "whodunit.js", "app.js"]
+const scripts = ["config.js", "worlds/midnight.js", "worlds/halcyon.js", "engine.js", "art.js", "chronicle.js", "story.js", "content.js", "whodunit.js", "app.js"]
   .map((f) => `<script>\n${read(f)}\n</script>`).join("\n");
 
 // Body content only — no <!doctype>/<html>/<head>/<body>, so this drops

@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const docs = resolve(here, "..", "docs");
 const ctx = { console }; ctx.globalThis = ctx; vm.createContext(ctx);
-for (const f of ["config.js", "worlds/midnight.js", "engine.js", "whodunit.js"])
+for (const f of ["config.js", "worlds/midnight.js", "worlds/halcyon.js", "engine.js", "whodunit.js"])
   vm.runInContext(readFileSync(resolve(docs, f), "utf8"), ctx);
 const MV = ctx.MV;
 

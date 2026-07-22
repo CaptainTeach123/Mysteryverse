@@ -50,6 +50,7 @@
   // ---- the built-in world: Ravenhollow Manor ---------------------------
   MV.defineWorld({
     id: "ravenhollow",
+    tagline: "A host gathers his enemies under one roof — and the roof does not mean to let them leave.",
     locale: {
       name: "Ravenhollow Manor",
       start: "Foyer",

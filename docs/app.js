@@ -30,28 +30,77 @@
   const localeName = () => MV.world.locale.name;
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
 
+  // The collection's cover text — edit freely.
+  const COLLECTION = { title: "The Mysteries", subtitle: "A cabinet of closed-circle murders" };
+  const FLOURISH = `<svg viewBox="0 0 200 24" width="176" height="21" aria-hidden="true"><g fill="none" stroke="#c9a24a" stroke-width="1.5"><path d="M12 12 C 52 2, 72 2, 94 12"/><path d="M188 12 C 148 22, 128 22, 106 12"/></g><circle cx="100" cy="12" r="3.2" fill="#c9a24a"/></svg>`;
+  const COVERS = ["#7a2018", "#2f7f73", "#3f6f9a", "#6a4a8f", "#8a6a2a", "#5a7a3a"];
+
   // =====================================================================
-  //  TITLE
+  //  LANDING — the splash, then the cabinet of cases
+  // =====================================================================
+  function splash() {
+    document.body.classList.add("on-splash");
+    show(`
+      <div class="splash">
+        <div class="splash-art">${A.moonScene()}</div>
+        <div class="splash-copy">
+          <h1 class="script">${esc(COLLECTION.title)}</h1>
+          <div class="flourish">${FLOURISH}</div>
+          <p class="sub">${esc(COLLECTION.subtitle)}</p>
+          <button class="enterbtn" id="enter" type="button">Enter</button>
+        </div>
+      </div>`);
+    on("enter", cases);
+  }
+
+  function cases() {
+    document.body.classList.remove("on-splash");
+    document.querySelector(".brand").textContent = COLLECTION.title;
+    const worlds = Object.values(MV.WORLDS);
+    const cards = worlds.map((w, i) => {
+      const tag = w.tagline || (w.cast.length + " suspects · one killer");
+      return `<a class="casecard" href="?world=${esc(w.id)}" style="--acc:${COVERS[i % COVERS.length]}">
+        <div class="casecover">
+          <div class="casenum">Case Nº ${String(i + 1).padStart(2, "0")}</div>
+          <div class="casename">${esc(cap(w.locale.name))}</div>
+        </div>
+        <div class="casebody"><p class="casetag">${esc(tag)}</p>
+          <span class="openbtn">Open the case →</span></div>
+      </a>`;
+    }).join("");
+    show(`
+      <div class="section-head"><h2>${esc(COLLECTION.title)}</h2>
+        <button class="iconbtn" id="back" type="button">← Cover</button></div>
+      <p style="max-width:64ch;margin-top:-6px">${esc(COLLECTION.subtitle)}. Each is its own case, on
+        its own page — pick one, and find the killer before the last dawn.</p>
+      <div class="cases">${cards}</div>`);
+    on("back", splash);
+  }
+
+  // =====================================================================
+  //  A CASE — its own page (URL ?world=id)
   // =====================================================================
   function hero() {
+    document.body.classList.remove("on-splash");
     document.querySelector(".brand").textContent = localeName();
-    const suspects = MV.world.cast.length;
     show(`
       <section class="hero">
-        <div class="art">${A.manor()}</div>
+        <div class="art">${MV.world.coverImage
+          ? `<img class="coverimg" src="${esc(MV.world.coverImage)}" alt="${esc(cap(localeName()))}"/>`
+          : A.cover(MV.world.cover)}</div>
         <div class="hero-copy">
           <div class="kicker">A Whodunit</div>
           <h1>${esc(cap(localeName()))}</h1>
-          <p class="tag">A storm has cut the house off from the world, and one of the
-            guests is quietly murdering the rest. You are the reporter who came to cover
-            the gathering — and now has until the last dawn to prove who did it, before
+          <p class="tag">A storm has cut this place off from the world, and one of your
+            fellow guests is quietly murdering the rest. You are the reporter who came to
+            cover the gathering — and now has until the last dawn to prove who did it, before
             the story files itself under your own name.</p>
           <div class="btnrow">
             <button class="btn" id="begin" type="button">Take the assignment</button>
+            <a class="btn ghost" href="${esc(location.pathname)}" id="allcases">← All mysteries</a>
           </div>
         </div>
       </section>
-      ${worldbar()}
       <div class="section-head"><h2>How the investigation works</h2></div>
       <p style="max-width:64ch">Each day you make one move — <b>examine</b> a scene, <b>search</b>
         a room, or <b>interview</b> a guest — and add what you find to your case file. You are
@@ -61,24 +110,6 @@
         cried out without proof is the last mistake you'll make. Nothing here is random —
         the truth is fixed, and findable, if you're quick and careful enough.</p>`);
     on("begin", invitation);
-    const sel = document.getElementById("worldpick");
-    if (sel) sel.onchange = () => {
-      MV.useWorld(sel.value);
-      try { history.replaceState(null, "", location.pathname + "?world=" + encodeURIComponent(sel.value)); } catch (e) { /* file:// */ }
-      hero();
-    };
-  }
-
-  function worldbar() {
-    const worlds = Object.values(MV.WORLDS);
-    if (worlds.length < 2) return "";
-    const opts = worlds.map((w) =>
-      `<option value="${esc(w.id)}" ${w.id === MV.world.id ? "selected" : ""}>${esc(cap(w.locale.name))}</option>`).join("");
-    return `<div class="worldbar">
-      <label for="worldpick">Choose your mystery</label>
-      <select id="worldpick" aria-label="Choose your mystery">${opts}</select>
-      <span class="worldcount">${worlds.length} cases and counting</span>
-    </div>`;
   }
 
   // =====================================================================
@@ -326,11 +357,12 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   }
 
-  // Choose a world by URL (?world=id); default is the built-in one.
+  // Route: ?world=id (or a window.MV_BOOT set by a per-mystery page) opens that
+  // case on its own page/URL; otherwise the landing splash.
+  let booted = false;
   try {
-    const wanted = new URLSearchParams(location.search).get("world");
-    if (wanted && MV.WORLDS[wanted]) MV.useWorld(wanted);
-  } catch (e) { /* no query string */ }
-
-  hero();
+    const wanted = window.MV_BOOT || new URLSearchParams(location.search).get("world");
+    if (wanted && MV.WORLDS[wanted]) { MV.useWorld(wanted); hero(); booted = true; }
+  } catch (e) { /* file:// or no query */ }
+  if (!booted) splash();
 })();

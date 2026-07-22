@@ -124,7 +124,14 @@ MV.defineWorld({
 Drop that in a `<script>` after `config.js`, load the page with
 `?world=my-world`, and it just runs — one killer, a body a night, the case
 always solvable in time, portraits and Chronicler prose generated for anyone you
-didn't hand-author.
+didn't hand-author. It also appears automatically on the landing page (a "cabinet
+of cases"), and each mystery lives on its own URL (`?world=id`).
+
+Optional world fields for presentation:
+- `tagline` — the one-liner on the landing card.
+- `cover` — the title-card scene: `"manor"` (default), `"yacht"`, or `"moon"`.
+- `coverImage` — a URL/path to your own hero image (e.g. `"img/halcyon.jpg"`);
+  drop the file next to the page and it's used instead of the generated scene.
 
 It is **pure static files** — no server, no build step, **no AI calls at
 run-time** — so it runs entirely in the visitor's browser and costs nothing to

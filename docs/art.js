@@ -311,6 +311,91 @@
     return { wall, floor: shade(wall, 0.5), accent: ACCENTS[(h >> 4) % ACCENTS.length] };
   }
 
+  // A moody moon over a misty forest — the landing-page backdrop.
+  function moonScene() {
+    // deterministic tree-lines (no randomness)
+    const pines = (baseY, minH, maxH, step, fill, jig) => {
+      let s = "";
+      for (let x = -30, i = 0; x < 1640; x += step, i++) {
+        const h = minH + ((i * 53 + jig) % (maxH - minH));
+        const w = 14 + ((i * 29) % 20);
+        s += `<path d="M${x - w} ${baseY} L${x} ${baseY - h} L${x + w} ${baseY} Z" fill="${fill}"/>`;
+        s += `<rect x="${x - 2}" y="${baseY - h}" width="4" height="${h}" fill="${fill}"/>`;
+      }
+      return s;
+    };
+    const maria = [[720, 340, 70, 46], [820, 300, 40, 34], [760, 430, 55, 40], [660, 380, 34, 30], [860, 400, 30, 26]]
+      .map(([cx, cy, rx, ry]) => `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#6f6553" opacity="0.35"/>`).join("");
+    return `<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A great moon over a dark forest">
+      <defs>
+        <radialGradient id="ms-sky" cx="48%" cy="40%" r="70%"><stop offset="0%" stop-color="#2a231d"/><stop offset="55%" stop-color="#14100d"/><stop offset="100%" stop-color="#070605"/></radialGradient>
+        <radialGradient id="ms-halo" cx="50%" cy="42%" r="50%"><stop offset="0%" stop-color="#d8cdb8" stop-opacity="0.35"/><stop offset="60%" stop-color="#d8cdb8" stop-opacity="0.05"/><stop offset="100%" stop-color="#d8cdb8" stop-opacity="0"/></radialGradient>
+        <radialGradient id="ms-moon" cx="42%" cy="36%" r="66%"><stop offset="0%" stop-color="#e4d9c3"/><stop offset="62%" stop-color="#c3b79e"/><stop offset="100%" stop-color="#8f8472"/></radialGradient>
+        <clipPath id="ms-disk"><circle cx="770" cy="380" r="280"/></clipPath>
+        <filter id="ms-mist" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="34"/></filter>
+        <radialGradient id="ms-vig" cx="50%" cy="46%" r="75%"><stop offset="55%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.72"/></radialGradient>
+      </defs>
+      <rect width="1600" height="900" fill="url(#ms-sky)"/>
+      <circle cx="770" cy="380" r="470" fill="url(#ms-halo)"/>
+      <circle cx="770" cy="380" r="280" fill="url(#ms-moon)"/>
+      <g clip-path="url(#ms-disk)">${maria}
+        <circle cx="640" cy="300" r="10" fill="#5f5545" opacity="0.4"/><circle cx="900" cy="330" r="8" fill="#5f5545" opacity="0.4"/><circle cx="700" cy="500" r="7" fill="#5f5545" opacity="0.35"/>
+      </g>
+      <g class="ms-fog ms-fog-a" fill="#cdbfa0" opacity="0.07" filter="url(#ms-mist)">
+        <ellipse cx="420" cy="560" rx="440" ry="80"/><ellipse cx="1120" cy="600" rx="400" ry="74"/>
+      </g>
+      <g class="ms-fog ms-fog-b" fill="#b8ab8e" opacity="0.06" filter="url(#ms-mist)">
+        <ellipse cx="820" cy="500" rx="480" ry="70"/><ellipse cx="300" cy="660" rx="360" ry="80"/><ellipse cx="1300" cy="640" rx="360" ry="70"/>
+      </g>
+      ${pines(760, 40, 120, 46, "#0b0a09", 7)}
+      ${pines(900, 120, 300, 40, "#040404", 19)}
+      <rect width="1600" height="900" fill="url(#ms-vig)"/>
+    </svg>`;
+  }
+
+  // A classic white motor-yacht at sunset off a cliff coast — the Halcyon.
+  function yacht() {
+    const portholes = (() => { let s = ""; for (let x = 430; x < 1170; x += 66) s += `<circle cx="${x}" cy="632" r="9" fill="#14263a"/><circle cx="${x}" cy="632" r="9" fill="none" stroke="#c79a3e" stroke-width="1.5"/>`; return s; })();
+    const cypress = (cx, h) => `<path d="M${cx} 540 q-14 -${h} 0 -${h + 20} q14 ${20} 0 ${h}" fill="#20361f"/><rect x="${cx - 2}" y="530" width="4" height="20" fill="#20361f"/>`;
+    return `<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A classic motor-yacht at sunset">
+      <defs>
+        <linearGradient id="y-sky" x1="0" y1="0" x2="1" y2="0.7"><stop offset="0%" stop-color="#26407e"/><stop offset="52%" stop-color="#7a6a94"/><stop offset="78%" stop-color="#e79a4a"/><stop offset="100%" stop-color="#f2c069"/></linearGradient>
+        <radialGradient id="y-cloud" cx="40%" cy="40%" r="70%"><stop offset="0%" stop-color="#f6e6c8"/><stop offset="100%" stop-color="#e0a05e"/></radialGradient>
+        <radialGradient id="y-vig" cx="50%" cy="45%" r="75%"><stop offset="60%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.5"/></radialGradient>
+      </defs>
+      <rect width="1600" height="700" fill="url(#y-sky)"/>
+      <g fill="url(#y-cloud)" opacity="0.95"><ellipse cx="380" cy="230" rx="200" ry="90"/><ellipse cx="560" cy="270" rx="150" ry="70"/><ellipse cx="1180" cy="200" rx="230" ry="95"/><ellipse cx="1360" cy="250" rx="160" ry="70"/></g>
+      <!-- cliff coast, left -->
+      <path d="M0 700 L0 300 Q120 250 200 360 Q300 480 260 700 Z" fill="#b56a34"/>
+      <path d="M0 700 L0 360 Q90 330 150 430 Q210 540 180 700 Z" fill="#8f4f26"/>
+      ${cypress(150, 70)}${cypress(190, 90)}${cypress(230, 64)}
+      <!-- sea -->
+      <rect y="650" width="1600" height="250" fill="#173763"/>
+      <g stroke="#3f6ea0" stroke-width="3" opacity="0.5"><line x1="0" y1="720" x2="1600" y2="712"/><line x1="0" y1="790" x2="1600" y2="800"/><line x1="0" y1="860" x2="1600" y2="852"/></g>
+      <!-- the yacht (bow to the left) -->
+      <g>
+        <path d="M300 612 L1230 596 L1230 660 L360 692 Q320 660 300 612 Z" fill="#ece3d0"/>
+        <path d="M300 612 L1230 596" fill="none" stroke="#c79a3e" stroke-width="4"/>
+        <path d="M360 692 L1230 660 L1230 672 L372 700 Z" fill="#16233b"/>
+        ${portholes}
+        <!-- main deck cabin -->
+        <rect x="520" y="524" width="700" height="86" fill="#ece3d0"/><rect x="540" y="540" width="640" height="46" fill="#0f2033"/><rect x="520" y="520" width="700" height="6" fill="#c79a3e"/>
+        <!-- upper deck -->
+        <rect x="610" y="452" width="540" height="74" fill="#ece3d0"/><rect x="628" y="466" width="486" height="42" fill="#0f2033"/><rect x="610" y="448" width="540" height="6" fill="#c79a3e"/>
+        <!-- wheelhouse -->
+        <path d="M700 452 L700 402 L980 402 L980 452 Z" fill="#ece3d0"/><rect x="716" y="412" width="250" height="34" fill="#0f2033"/>
+        <!-- funnel + mast + radar -->
+        <rect x="1000" y="404" width="46" height="60" rx="8" fill="#1a2740"/>
+        <line x1="940" y1="402" x2="940" y2="270" stroke="#b79552" stroke-width="4"/><line x1="905" y1="300" x2="975" y2="300" stroke="#b79552" stroke-width="3"/><circle cx="940" cy="262" r="9" fill="#e7dcc4"/>
+        <!-- railings -->
+        <g stroke="#c79a3e" stroke-width="1.6" opacity="0.9"><line x1="360" y1="596" x2="1230" y2="584"/><line x1="620" y1="524" x2="1150" y2="516"/></g>
+        <!-- wake -->
+        <path d="M300 640 Q220 660 150 690 Q240 678 320 674 Z" fill="#eef4f6" opacity="0.85"/>
+      </g>
+      <rect width="1600" height="900" fill="url(#y-vig)"/>
+    </svg>`;
+  }
+
   // ---- small utils ------------------------------------------------------
   function uid(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffff; return h.toString(36); }
   function shade(hex, f) {
@@ -322,5 +407,12 @@
   }
 
   root.MV = root.MV || {};
-  root.MV.art = { portrait, room, manor, palette: (n) => FACES[n], roomPalette: (n) => ROOM_ART[n] };
+  // Per-world hero art: a title-card scene chosen by the world's `cover`.
+  function cover(kind) {
+    if (kind === "yacht") return yacht();
+    if (kind === "moon") return moonScene();
+    return manor();
+  }
+
+  root.MV.art = { portrait, room, manor, moonScene, yacht, cover, palette: (n) => FACES[n], roomPalette: (n) => ROOM_ART[n] };
 })(typeof globalThis !== "undefined" ? globalThis : this);

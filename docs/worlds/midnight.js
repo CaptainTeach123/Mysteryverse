@@ -13,6 +13,7 @@
   const MV = (root.MV = root.MV || {});
   MV.defineWorld({
     id: "midnight",
+    tagline: "A night express, a killer in the crew, and a crawlway only one man aboard knows.",
     locale: {
       name: "the Midnight Express",
       start: "Dining Car",
