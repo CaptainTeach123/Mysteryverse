@@ -1,0 +1,15 @@
+# Cloudflare config for the Mysteryverse static site.
+#
+# One-step manual deploy (bypasses the Git clone entirely):
+#
+#   npx wrangler deploy
+#
+# It uploads the pre-built static site in docs/ — the exact same files a
+# Git-connected build serves — straight to the "mysteryverse" Worker. Handy
+# whenever a Git build fails to clone, or you just want to push instantly.
+name = "mysteryverse"
+compatibility_date = "2026-07-22"
+
+# Assets-only Worker: no server code, just the files in docs/.
+[assets]
+directory = "./docs"
