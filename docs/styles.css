@@ -206,6 +206,16 @@ h1, h2, h3, .display, .label, button { font-family: var(--display); }
 .letter .sig { text-align: right; font-style: italic; color: var(--text-dim); }
 .letter hr { border: none; border-top: 1px dashed var(--border); margin: 16px 0; }
 
+/* whodunit: pillars + evidence */
+.pillars { display: flex; gap: 6px; }
+.pill { flex: 1; text-align: center; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.58rem; padding: 6px 3px; border: 1px solid var(--border); border-radius: 2px; color: var(--text-dim); }
+.pill.got { border-color: var(--accent-2); color: var(--accent-2); background: color-mix(in srgb, var(--accent-2) 12%, transparent); }
+.evidence { border-left: 3px solid var(--accent-2); padding-left: 14px !important; }
+.evidence .etag { display: inline-block; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.6rem; color: var(--accent-2); border: 1px solid var(--accent-2); border-radius: 2px; padding: 1px 6px; margin-right: 8px; vertical-align: middle; }
+.evidence.pillar-motive { border-left-color: var(--gold); } .evidence.pillar-motive .etag { color: var(--gold); border-color: var(--gold); }
+.evidence.pillar-opportunity { border-left-color: var(--accent); } .evidence.pillar-opportunity .etag { color: var(--accent); border-color: var(--accent); }
+.evidence.cleared, .d2.cleared { color: var(--text-dim); font-style: italic; border-left-color: var(--border); }
+
 /* the Chronicler — the eighth agent, the narrating voice of the house */
 .chronicler { border-left: 3px solid var(--accent); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 60%); padding: 12px 18px 8px; margin: 4px 0 16px; border-radius: 0 3px 3px 0; }
 .chronicler .byline { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.62rem; color: var(--accent); margin-bottom: 6px; }

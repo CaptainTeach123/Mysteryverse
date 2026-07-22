@@ -15,12 +15,12 @@ const docs = resolve(here, "..", "docs");
 const read = (f) => readFileSync(resolve(docs, f), "utf8");
 
 const css = read("styles.css");
-const scripts = ["config.js", "worlds/midnight.js", "engine.js", "art.js", "chronicle.js", "story.js", "content.js", "app.js"]
+const scripts = ["config.js", "worlds/midnight.js", "engine.js", "art.js", "chronicle.js", "story.js", "content.js", "whodunit.js", "app.js"]
   .map((f) => `<script>\n${read(f)}\n</script>`).join("\n");
 
 // Body content only — no <!doctype>/<html>/<head>/<body>, so this drops
 // straight into an Artifact skeleton, and is also valid standalone.
-const page = `<title>Ravenhollow Manor — A Game of Intrigue</title>
+const page = `<title>Ravenhollow Manor — A Whodunit</title>
 <style>
 ${css}
 </style>

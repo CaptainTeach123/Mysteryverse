@@ -38,26 +38,33 @@ Mace is hunted twice (by Crane and Genevieve), and Mace and Crane hunt each
 other — that mutual pull is where the first blood usually falls. Only Blackwood,
 the host, knows the manor's hidden passages.
 
-## Play in the browser (zero-cost website)
+## Play in the browser: the whodunit (zero-cost website)
 
-There's a full graphical **storybook** in [`docs/`](docs/): the deterministic
-engine ported to JavaScript, flat mid-century SVG art for every guest and room,
-and an authored branching narrative.
+The browser game in [`docs/`](docs/) is a **closed-circle murder mystery**. A
+storm cuts the house off; one of the guests is a killer with a deep reason to
+see everyone dead, and takes a life every night. **You are the journalist**,
+sent to cover the gathering, and you have until the last dawn to prove who did
+it — before the house empties, or the killer notices you.
 
-- **Pick a guest** and an envelope opens with your invitation to Ravenhollow —
-  revealing the one guest you came to kill. Who has come for *you*, you learn
-  only through play (an attempt on your life, a confession, a page of a diary).
-- **Two choices a day.** A morning **intent** (three options, in your guest's
-  voice) sets where you go; then one **scene** with **three actions** — spoken
-  aloud or thought to yourself. Detailed dispatches report each night's dead.
-- **A body falls every day** until one guest remains. **Your mark can die by no
-  hand but yours.** Win by outliving them all *and* striking your mark down;
-  play recklessly and you'll be knifed in a back room or unmasked by the house.
-- Every one of the seven has a deterministic path to victory (verified by
-  `web/winnability.mjs`), and none of it is random.
+- An envelope opens with your assignment; then you meet **the suspects**.
+- Each day you make **one move** — **examine** a scene, **search** a room, or
+  **interview** a guest — building a **case file** toward three pillars against
+  the culprit: **means**, **motive**, and **opportunity**.
+- When you have all three, you **name the killer**. Get it right, with the whole
+  case behind you, and you break the story of your life.
+- You **lose** four ways: name the wrong person, name the right person without
+  proof, let the killer empty the house, or pry so close the killer comes for
+  *you*. Prying into the killer's private rooms or questioning them directly
+  raises their attention — the meter in the sidebar — so gather what you can
+  from the scenes and the innocents.
+- The **Chronicler** (a narrating presence, no one in the story) sets each day
+  in classic closed-circle prose. Everything is deterministic and findable:
+  `web/whodunit-solve.mjs` verifies the case is always solvable in time, and
+  that both false and unproven accusations lose.
 
-The classic auto-simulation is still there too — "Watch the night unfold" runs
-the whole thing on its own, and you can read it back through any guest's eyes.
+*(The Python package in `mysteryverse/` is the project's original engine — a
+multi-killer intrigue **simulation** with a CLI; the browser game is the
+journalist whodunit built on the same deterministic ideas.)*
 
 ### Define your own world (drop in a new cast + locale)
 
@@ -74,39 +81,50 @@ reads, and looks like a whole game.
   generated: [`docs/worlds/midnight.js`](docs/worlds/midnight.js) (the Midnight
   Express, a train). Open the page with `?world=midnight` to play it.
 
-A minimal world is just:
+A whodunit world is a locale, a cast of suspects, a journalist, and the case:
 
 ```js
 MV.defineWorld({
   id: "my-world",
+  mode: "whodunit",
   locale: {
     name: "The Something-or-Other",
-    start: "Great Hall",              // where everyone begins
+    start: "Great Hall",
     weapons: { "Poker": 3, "Cord": 2 },
     rooms: [
       { name: "Great Hall", exits: ["Study"], description: "…" },
-      { name: "Study", exits: ["Great Hall"], weapon: "Poker",
-        providesPoison: true, lure: "an open safe", description: "…" },
+      { name: "Study", exits: ["Great Hall"], description: "…" },
     ],
-    passages: { "Study": "Great Hall" },   // optional secret one-step links
   },
-  cast: [
-    { name: "Ada Vane", title: "the Widow", target: "Boyd Kerr",
-      skills: { poison: 5, deduction: 4 },  // any of the seven; missing → 1
-      vices: ["pride", "paranoia"],
-      motive: "He buried her sister's will. She means to bury him.",
-      secret: "…", hook: "A widow with a chemist's steady hand." },
-    // … more agents. Give every agent a target; forms the murder web.
+  cast: [   // the suspects — one is the killer; the rest die one a night
+    { name: "Ada Vane", title: "the Widow", skills: { poison: 5 },
+      vices: ["pride"], hook: "A widow with a chemist's steady hand." },
+    // … more suspects. Missing art/voice is generated from their traits.
   ],
+  journalist: { name: "Cole Rourke", title: "the Stringer",
+                hook: "A reporter with nothing to lose but the deadline." },
+  mystery: {
+    killer: "Ada Vane",              // one of the cast
+    deadline: 7,                     // last dawn
+    motiveRoom: "Study",             // searching here reveals MOTIVE
+    hotRooms: ["Study"],             // prying here draws the killer's eye
+    truth: "Why they did it — revealed at the end.",
+    pillars: {                       // the three true clues, in the journalist's voice
+      means: "Examining a scene, you realise…",
+      motive: "The study gives up its secret…",
+      opportunity: "Cross-referencing the alibis…",
+    },
+    herrings: {                      // each innocent looks guilty, then is cleared
+      "Boyd Kerr": { clue: "Kerr had every reason…", alibi: "…but Kerr was in plain view when it happened." },
+    },
+  },
 });
 ```
 
 Drop that in a `<script>` after `config.js`, load the page with
-`?world=my-world`, and it just runs — a body a day, every guest deterministically
-winnable, portraits and prose generated for anyone you didn't hand-author.
-Optional per-agent `art` / `voice` / `narrative` and per-world `chronicler` prose
-override the generated defaults when you want the bespoke touch (see the schema
-comment at the top of `docs/config.js`).
+`?world=my-world`, and it just runs — one killer, a body a night, the case
+always solvable in time, portraits and Chronicler prose generated for anyone you
+didn't hand-author.
 
 It is **pure static files** — no server, no build step, **no AI calls at
 run-time** — so it runs entirely in the visitor's browser and costs nothing to

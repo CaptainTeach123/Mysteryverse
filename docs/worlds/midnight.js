@@ -54,5 +54,25 @@
         motive: "Years ago, on this very line, a border official named Finch had his brother taken off the train and shot in the snow. The train has come round again.",
         secret: "He has been waiting on this exact run, this exact passenger, for eleven years." },
     ],
+    mode: "whodunit",
+    journalist: { name: "Mr. Julian Vane", title: "the Correspondent", hook: "A rail correspondent who boarded for a travel piece and got rather more." },
+    mystery: {
+      killer: "Conductor Bede",
+      deadline: 6,
+      hotRooms: ["Baggage Car", "Galley"],
+      motiveRoom: "Baggage Car",
+      truth: "Conductor Bede had waited eleven years for this exact run and this exact passenger. When the storm stranded the train he began settling every account at once — moving through the service crawlway only he knew, taking them one by one, and meaning to be the sole railwayman left to write the incident up himself.",
+      pillars: {
+        means: "You examine the compartment where the body was found — locked from the inside, the corridor watched end to end, and yet the killer came and went. Only the service crawlway behind the panelling makes that possible, and only one man aboard carries the key to it.",
+        motive: "In the baggage car, under the mailbags, a railwayman's old logbook: eleven years of the same run circled, the same passenger's name underlined again and again. This was never Bede's route by accident. He requested it, every year, and waited.",
+        opportunity: "Set the accounts side by side and it is plain: every passenger can vouch for every other at each death — except the conductor, who is always 'walking the train,' always between cars, always exactly where no one thinks to look.",
+      },
+      herrings: {
+        "Countess Irina Volkova": { clue: "The Countess travels under a false name and has, she lets slip, 'dealt with' men before.", alibi: "But she was locked in her own compartment with the porter's key lost, seen by two others, when the second passenger died." },
+        "Mr. Aldous Finch": { clue: "Finch is frightened half to death and clearly believes himself hunted — the mark of a guilty conscience, or a marked man.", alibi: "He is also soft-handed and seasick, and could no more slip through a crawlway than fly; and he was in the salon, in company, each time." },
+        "Miss Vera Lang": { clue: "The other journalist aboard has a notebook full of everyone's ruin and the nerve to use it.", alibi: "But Lang was at the bar cadging quotes, loudly and publicly, on the nights that count — a reporter needs witnesses, and she made sure of them." },
+        "Salvatore Ricci": { clue: "Ricci is built for violence and owed money by half the dead — the readiest motive on the train.", alibi: "Yet he is far too large to pass unseen through a servant's crawlway, and was snoring off his brandy in plain view each night." },
+      },
+    },
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);

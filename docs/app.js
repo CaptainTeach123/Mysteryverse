@@ -1,18 +1,16 @@
-/* Mysteryverse — the browser controller (storybook edition).
+/* Mysteryverse — the whodunit controller.
  *
- * You take one guest. Each day you make two choices — an intent, then an action
- * in the scene it leads to — and read the consequences in that guest's own
- * voice. The other six scheme on their own. Everything is deterministic: same
- * guest, same choices, same story. No network, no model calls.
+ * You are the journalist. One guest is a killer; a body falls each night. You
+ * investigate — examine, search, interview — to assemble the three pillars of a
+ * case (means, motive, opportunity) and name the culprit before the storm lifts,
+ * the house empties, or the killer notices you first. Deterministic; no network.
  */
 (function () {
   "use strict";
-  const MV = window.MV, A = MV.art, T = MV.text, C = MV.content, esc = escapeHtml;
+  const MV = window.MV, A = MV.art, S = MV.story, W = MV.whodunit, esc = escapeHtml;
   const app = document.getElementById("app");
-  const last = MV.last;
-
-  let game = null, me = null, playerName = null, known = null;
-  let daylog = [], pending = null;
+  const shortName = W.shortName;
+  let G = null;
 
   // ---- theme ------------------------------------------------------------
   const root = document.documentElement;
@@ -28,105 +26,68 @@
 
   const show = (html) => { app.innerHTML = html; window.scrollTo({ top: 0 }); };
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const wait = () => new Promise((res) => { pending = () => { pending = null; res(); }; });
-  const choose = () => new Promise((res) => { pending = (v) => { pending = null; res(v); }; });
-
-  const NUMWORD = ["no", "one", "two", "three", "four", "five", "six", "seven",
-    "eight", "nine", "ten", "eleven", "twelve"];
-  const castCount = () => MV.world.cast.length;
-  const numword = (n) => NUMWORD[n] || String(n);
   const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
   const localeName = () => MV.world.locale.name;
+  const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
 
-  // ---- hero -------------------------------------------------------------
+  // =====================================================================
+  //  TITLE
+  // =====================================================================
   function hero() {
     document.querySelector(".brand").textContent = localeName();
-    const n = castCount();
+    const suspects = MV.world.cast.length;
     show(`
       <section class="hero">
         <div class="art">${A.manor()}</div>
         <div class="hero-copy">
-          <div class="kicker">A Game of Intrigue</div>
+          <div class="kicker">A Whodunit</div>
           <h1>${esc(cap(localeName()))}</h1>
-          <p class="tag">A storm with no way out, and ${esc(numword(n))} strangers
-            shut in together — each with a private reason to see another dead. A
-            body falls every day until one alone remains. Will it be you — and
-            will your quarry fall by your hand first?</p>
+          <p class="tag">A storm has cut the house off from the world, and one of the
+            guests is quietly murdering the rest. You are the reporter who came to cover
+            the gathering — and now has until the last dawn to prove who did it, before
+            the story files itself under your own name.</p>
           <div class="btnrow">
-            <button class="btn" id="toGallery" type="button">Choose your guest</button>
-            <button class="btn ghost" id="toWatch" type="button">Watch the night unfold</button>
+            <button class="btn" id="begin" type="button">Take the assignment</button>
           </div>
         </div>
       </section>
-      <div class="section-head"><h2>How the night works</h2></div>
-      <p style="max-width:64ch">Each day you choose one of <b>three intents</b>, then face one
-        scene with <b>three actions</b> — spoken aloud or thought to yourself. You always know
-        the one guest you came to kill; <b>your mark can die by no hand but yours</b>. Who has
-        come for <i>you</i>, though, you must find out — from an attempt on your life, a
-        confession, or a page of someone's diary. To win: outlive them all, and be the one who
-        strikes your mark down. Nothing here is random.</p>
-      <p style="max-width:64ch">An eighth presence keeps the record: <b>the Chronicler</b>,
-        who is no one in the story and everyone's witness. Each morning she sets the scene —
-        the storm, the house, the dwindling company — in the manner of every closed-circle
-        mystery ever told. What each guest then writes at nightfall is drawn from what they
-        actually did, saw, and survived, coloured by the kind of soul they are.</p>`);
-    document.getElementById("toGallery").onclick = gallery;
-    document.getElementById("toWatch").onclick = () => watch();
+      <div class="section-head"><h2>How the investigation works</h2></div>
+      <p style="max-width:64ch">Each day you make one move — <b>examine</b> a scene, <b>search</b>
+        a room, or <b>interview</b> a guest — and add what you find to your case file. You are
+        building toward three pillars against the killer: <b>means</b>, <b>motive</b>, and
+        <b>opportunity</b>. Assemble all three and name them, and you break the story. But every
+        night the killer claims another life; pry too close and it will be yours; and a name
+        cried out without proof is the last mistake you'll make. Nothing here is random —
+        the truth is fixed, and findable, if you're quick and careful enough.</p>`);
+    on("begin", invitation);
   }
 
-  // ---- gallery (spoiler-free) ------------------------------------------
-  function gallery() {
-    const cards = MV.buildCast().map((c) => {
-      const top = Object.entries(c.skills).sort((a, b) => b[1] - a[1]).slice(0, 2);
-      return `<article class="card">
-        <div class="pic">${A.portrait(c.name, 240)}</div>
-        <div class="body">
-          <div><h3>${esc(c.name)}</h3><div class="title">${esc(c.title)}</div></div>
-          <div class="chips">
-            ${top.map(([k, v]) => `<span class="chip skill">${k} ${v}</span>`).join("")}
-            ${c.vices.map((v) => `<span class="chip vice">${v}</span>`).join("")}
-          </div>
-          <p class="motive">${esc(C.hook(c))}</p>
-          <button class="btn" data-play="${esc(c.name)}" type="button">Play as ${esc(last(c.name))}</button>
-        </div>
-      </article>`;
-    }).join("");
-    show(`
-      <div class="section-head"><h2>The Guest List</h2>
-        <button class="iconbtn" id="back" type="button">Back</button></div>
-      <p style="max-width:62ch;margin-top:-6px">${esc(cap(numword(castCount())))} strangers, shut in
-        together. Choose the one whose eyes you'll see the night through. What they want — and
-        who wants them — is theirs to know, and yours to discover.</p>
-      <div class="gallery">${cards}</div>`);
-    document.getElementById("back").onclick = hero;
-    app.querySelectorAll("[data-play]").forEach((b) =>
-      b.addEventListener("click", () => invitation(b.getAttribute("data-play"))));
-  }
-
-  // ---- the invitation (opening letter animation) -----------------------
-  function invitation(name) {
-    const c = MV.buildCast().find((x) => x.name === name);
+  // =====================================================================
+  //  INVITATION (the journalist's letter)
+  // =====================================================================
+  function invitation() {
+    const j = MV.world.journalist;
     const place = cap(localeName());
-    const markFull = c.target;
-    const given = name.replace(/^(Dr|Lady|Miss|Colonel|Mother|Mr|Mrs|Sir|Lord|Countess|Count|Conductor|Sister|Father|Captain)\.?\s+/, "");
-    const body = `
-      <p>You crossed no threshold of ${esc(place)} by accident. Whatever pretext carried you here —
-        an invitation, a fare, a summons in a familiar hand — the storm has since seen to it that
-        no one leaves before morning.</p>
-      <hr/>
-      <p><i>And you did not come for the company.</i></p>
-      <p class="purpose">${esc(c.motive)}</p>
-      <p>Your quarry, before this storm blows out: <b>${esc(markFull)}</b>. ${c.knowsHunters
-        ? "And you know precisely which of the others has come, in turn, for you."
-        : "Whether anyone here has come for <i>you</i>, you do not yet know."}</p>`;
+    const given = j.name.replace(/^(Dr|Lady|Miss|Colonel|Mother|Mr|Mrs|Sir|Lord|Countess|Count|Conductor|Sister|Father|Captain)\.?\s+/, "");
     show(`
       <div class="env-stage">
         <div class="envelope" id="env">
           <div class="letter">
             <div class="letterhead">${esc(place)}</div>
             <p class="dear">Dear ${esc(given)},</p>
-            ${body}
-            <div class="btnrow" style="margin-top:18px"><button class="btn" id="enter" type="button">Enter, then</button></div>
+            <p>Your editor has done you a great favour, or a terrible one. You are to travel to
+              ${esc(place)} and file a colour piece on the gathering there — a reunion of sorts,
+              of people who all, it is said, share a certain history.</p>
+            <p class="sig">— the assignment desk</p>
+            <hr/>
+            <p><i>You arrive to find the bridge gone and the telephone dead. And on the first
+              night, a guest does not come down to breakfast — not that morning, nor any morning
+              after.</i></p>
+            <p class="purpose">You are ${esc(j.name)}, ${esc(j.title)}. One of these people is
+              killing the others, one a night, and means to leave no one alive to tell it. You have
+              until the storm lifts to prove which of them it is — with means, motive, and
+              opportunity all three — and live to print it.</p>
+            <div class="btnrow" style="margin-top:18px"><button class="btn" id="enter" type="button">Take out your notebook</button></div>
           </div>
           <div class="env-pocket"></div>
           <div class="env-flap"></div>
@@ -134,397 +95,208 @@
         </div>
       </div>`);
     const env = document.getElementById("env");
-    document.getElementById("enter").onclick = () => beginPlay(name);
+    on("enter", personae);
     if (reduced()) env.classList.add("open");
     else requestAnimationFrame(() => setTimeout(() => env.classList.add("open"), 120));
   }
 
-  // ---- play: setup ------------------------------------------------------
-  async function beginPlay(name) {
-    playerName = name;
-    const mark = MV.buildCast().find((c) => c.name === name).target;
-    game = new MV.Game({ playerName: name, reservedMark: mark });
-    me = game.byName[name];
-    known = C.initialKnownHunters(game, name);
-    daylog = [];
-    game.log({ type: "prologue" });
-    await runDays();
-    endingUI(game.finish());
-  }
-
-  async function runDays() {
-    let finale = false;
-    while (game.living().length > 1 && game.day < game.maxDays) {
-      game.day += 1;
-      game.murderToday = null;
-      game.log({ type: "daybreak", day: game.day, survivors: game.living().map((c) => c.name) });
-
-      // 1) Intent — three options.
-      game.playerHidden = false;
-      const intent = await intentUI(C.dayIntents(game, me));
-      game.playerHidden = intent.key === "lielow";   // lying low keeps you unreachable
-      const goal = resolveGoal(intent.goal);
-      if (goal) stepToward(goal, 5);
-
-      // 2) Encounter — three actions.
-      const subject = pickSubject();
-      const recap = [];
-      const chosen = await encounterUI(subject);
-      applyAction(chosen, subject, recap);
-
-      // 3) The world moves; a body falls.
-      advanceNpcs();
-      absorbReveals(recap);
-      if (!game.murderToday && game.living().length > 1) game.forceMurder();
-
-      // 4) Nightfall — the day's writing.
-      game.log({ type: "nightfall", day: game.day, victim: game.murderToday ? game.murderToday.victim : null });
-      game.resolveExposure();
-      game.decaySuspicion();
-      absorbReveals(recap);
-      const lines = composeNight(intent, chosen, subject, recap);
-      daylog.push({ day: game.day, html: lines });
-      const alive = game.living().length;
-      if (alive > 1 && me.alive && !me.caught) await nightUI(lines);
-      if (alive <= 1) break;
-      // Once it's just you and your mark, the night has one day left in it:
-      // the confrontation. It does not drag on into empty mornings.
-      if (alive === 2) { if (finale) break; else finale = true; }
-    }
-  }
-
-  // ---- goal + movement --------------------------------------------------
-  function resolveGoal(kind) {
-    const knows = playerName === "Cornelius Blackwood";
-    if (kind === "mark") {
-      const m = game.byName[me.target];
-      if (m.alive && !m.caught) return m.room;
-      kind = "rival";
-    }
-    if (kind === "rival") {
-      const others = game.living().filter((c) => c.name !== playerName);
-      let best = null, bd = 1e9;
-      for (const o of others) {
-        const d = game.mansion.bfsDistance(me.room, o.room, knows);
-        if (d !== null && d < bd) { bd = d; best = o.room; }
-      }
-      return best;
-    }
-    if (kind === "arm") return nearestMeans();
-    return safeRoom();
-  }
-
-  function nearestMeans() {
-    const knows = playerName === "Cornelius Blackwood";
-    let best = null, bd = 1e9;
-    for (const [n, r] of Object.entries(game.mansion.rooms)) {
-      const usable = r.weapon !== null || (r.providesPoison && MV.helpers.skill(me, "poison") >= 3);
-      if (!usable) continue;
-      const d = game.mansion.bfsDistance(me.room, n, knows);
-      if (d !== null && d < bd) { bd = d; best = n; }
-    }
-    return best;
-  }
-
-  function safeRoom() {
-    const knows = playerName === "Cornelius Blackwood";
-    const hunters = game.living().filter((c) => c.target === playerName);
-    let best = me.room, bestKey = null;
-    for (const [n, r] of Object.entries(game.mansion.rooms)) {
-      if (game.mansion.bfsDistance(me.room, n, knows) === null) continue;
-      let minH = 99;
-      for (const h of hunters) { const d = game.mansion.bfsDistance(n, h.room, knows); if (d !== null) minH = Math.min(minH, d); }
-      const key = [minH, r.lure ? 1 : 0, -game.inRoom(n).length, n];
-      if (bestKey === null || cmp(key, bestKey) > 0) { bestKey = key; best = n; }
-    }
-    return best;
-  }
-  const cmp = (a, b) => { for (let i = 0; i < a.length; i++) { if (a[i] < b[i]) return -1; if (a[i] > b[i]) return 1; } return 0; };
-
-  function stepToward(goal, steps) {
-    const knows = playerName === "Cornelius Blackwood";
-    for (let i = 0; i < steps && me.room !== goal; i++) {
-      const s = game.mansion.firstStep(me.room, goal, knows);
-      if (!s) break;
-      game.move(me, s, false);
-    }
-  }
-
-  function pickSubject() {
-    const here = game.inRoom(me.room, me.name);
-    const mark = game.byName[me.target];
-    if (here.includes(mark)) return mark;
-    const knownHunter = here.find((c) => known.has(c.name));
-    if (knownHunter) return knownHunter;
-    return here.length ? here[0] : null;
-  }
-
-  // ---- applying the scene action ---------------------------------------
-  function applyAction(opt, subject, recap) {
-    if (!opt) return;
-    if (opt.kind === "strike") {
-      const killed = opt.guaranteed
-        ? (game._commitKill(me, subject, opt.method, opt.weapon, false), true)
-        : game.resolveAttempt(me, subject, opt.method, opt.weapon, opt.witnessed);
-      recap.push(opt.line);
-      recap.push(killed
-        ? (subject.name === me.target ? `And it is done. ${last(subject.name)} — your reason for being here — is dead by your hand.` : `${last(subject.name)} will trouble no one again.`)
-        : `It goes wrong. ${last(subject.name)} lives, wide-eyed and certain now of what you are.`);
-    } else if (opt.kind === "lull") {
-      subject._lulledBy = me.name;
-      me.suspicion = Math.max(0, me.suspicion - 1);
-      recap.push(opt.line);
-      recap.push(`${last(subject.name)} softens, unguarded now. When you choose to strike, they will not see it coming.`);
-    } else if (opt.kind === "deflect") {
-      me.suspicion = Math.max(0, me.suspicion - 1);
-      recap.push(opt.line);
-    } else if (opt.kind === "converse") {
-      recap.push(opt.line);
-      if (subject.target === me.name && !known.has(subject.name)) {
-        known.add(subject.name);
-        recap.push(`Something in how ${last(subject.name)} answers turns you cold: this one has come for you.`);
-      } else if (subject.target) {
-        recap.push(`You gather, between the lies, that ${last(subject.name)} has no love for ${last(subject.target)}.`);
-      }
-    } else if (opt.kind === "arm") {
-      const r = game.mansion.rooms[me.room];
-      if (r.weapon) { game.apply(me, { kind: "arm" }); recap.push(opt.line); }
-      else recap.push("But there is nothing here worth taking up.");
-    } else if (opt.kind === "withdraw") {
-      recap.push(C.lieLow(me, game.day));
-      const exits = game.mansion.neighbors(me.room, playerName === "Cornelius Blackwood");
-      if (exits.length) game.move(me, exits[0], false);
-    } else {
-      recap.push(C.lieLow(me, game.day));
-    }
-  }
-
-  function advanceNpcs() {
-    const cap = game.turnsPerDay;
-    const settle = game.murderToday ? 1 : cap;   // if you already killed, just let them drift once
-    for (let t = 0; t < settle; t++) {
-      let acted = false;
-      for (const actor of game.orderedLiving()) {
-        if (actor.name === playerName || !actor.alive || actor.caught) continue;
-        const options = game.options(actor);
-        if (!options.length) continue;
-        game.apply(actor, MV.autoChoose(game, actor, options));
-        acted = true;
-        if (game.murderToday) break;
-      }
-      if (game.murderToday || !acted) break;
-    }
-  }
-
-  function absorbReveals(recap) {
-    for (const m of game.memory[playerName]) {
-      if (m.kind === "attacked" && !known.has(m.culprit)) {
-        known.add(m.culprit);
-        recap.push(`You survive an attempt on your life — and now you know the face of it: ${last(m.culprit)} means to see you dead.`);
-      }
-    }
-  }
-
-  // ---- composing the night's page --------------------------------------
-  function deathKnown(d) {
-    if (d.culprit === playerName) return true;
-    return game.memory[playerName].some((m) => m.kind === "witness_kill" && m.victim === d.victim);
-  }
-
-  function composeNight(intent, chosen, subject, recap) {
-    // Death dispatches for anyone who fell today — minus the one you narrated
-    // yourself, if you were the hand behind it.
-    const deathLines = game.deaths.filter((d) => d.day === game.day)
-      .filter((d) => !(chosen && chosen.kind === "strike" && d.culprit === playerName && subject && d.victim === subject.name))
-      .map((d) => C.deathDispatch(d, { known: deathKnown(d), viewer: playerName }));
-    // The night, composed out of the day you actually had and how it left you.
-    const out = MV.story.reflect(me, game, game.day, recap, deathLines);
-    const vig = C.vignette(game, me);
-    if (vig) out.push({ mv: vig });
-    return out;
-  }
-
-  function nightLines(lines) {
-    return lines.map((l) => {
-      if (l.dh) return `<div class="dh">${esc(l.dh)}</div>`;
-      if (l.op) return `<p class="op">${esc(l.op)}</p>`;
-      if (l.death) return `<p class="death-dispatch">${esc(l.death)}</p>`;
-      if (l.mv) return `<p class="mv">${esc(l.mv)}</p>`;
-      if (l.p) return `<p>${esc(l.p)}</p>`;
-      return "";
-    }).join("");
-  }
-
-  // ---- UI screens -------------------------------------------------------
-  function intentUI(intents) {
-    const dead = deadDossier();
-    show(`
-      <div class="stage">
-        <div>
-          <div class="section-head"><h2>Day ${game.day}</h2></div>
-          <div class="chronicler">
-            <div class="byline">The Chronicler</div>
-            <p>${esc(MV.story.morning(game))}</p>
-          </div>
-          ${finaleHint()}
-          <div class="choices"><div class="prompt">How do you spend the day?</div>
-            ${intents.map((it, i) => `<button class="choice intent" data-i="${i}" type="button">
-              <span class="lab">${esc(it.title)}</span>
-              <span class="fc">${esc(it.mono)}</span></button>`).join("")}
-          </div>
+  // =====================================================================
+  //  DRAMATIS PERSONAE (your suspects)
+  // =====================================================================
+  function personae() {
+    const cards = MV.world.cast.map((c) => {
+      const top = Object.entries(c.skills || {}).sort((a, b) => b[1] - a[1]).slice(0, 2);
+      return `<article class="card">
+        <div class="pic">${A.portrait(c.name, 240)}</div>
+        <div class="body">
+          <div><h3>${esc(c.name)}</h3><div class="title">${esc(c.title)}</div></div>
+          <div class="chips">${top.map(([k, v]) => `<span class="chip skill">${k} ${v}</span>`).join("")}</div>
+          <p class="motive">${esc(MV.content && MV.content.hook ? MV.content.hook(c) : (c.hook || ""))}</p>
         </div>
-        ${sidebar()}
-      </div>`);
-    app.querySelectorAll(".choice").forEach((b) =>
-      b.addEventListener("click", () => pending && pending(intents[+b.getAttribute("data-i")])));
-    return choose();
-  }
-
-  function encounterUI(subject) {
-    const scene = C.sceneProse(game, me, subject, known);
-    const opts = C.sceneOptions(game, me, subject, known);
-    const tokens = game.inRoom(me.room, me.name).map((c) => {
-      let cls = "", label = last(c.name);
-      if (c.name === me.target) { cls = "prey"; label += " · your mark"; }
-      else if (known.has(c.name)) { cls = "foe"; label += " · hunts you"; }
-      return `<div class="tokenc ${cls}">${A.portrait(c.name, 54)}<span class="nm">${esc(label)}</span></div>`;
+      </article>`;
     }).join("");
     show(`
-      <div class="stage">
-        <div>
-          <div class="scene">
-            <div class="backdrop">${A.room(me.room)}
-              <div class="roomtag"><div class="name">${esc(me.room)}</div></div></div>
-            <div class="present">${tokens}</div>
-          </div>
-          <div class="scene-prose">${scene.map((s) => `<p>${esc(s)}</p>`).join("")}</div>
-          <div class="choices"><div class="prompt">What do you do?</div>
-            ${opts.map((o, i) => {
-              let cls = "choice";
-              if (o.kind === "strike") cls += o.willSucceed ? " kill sure" : " kill";
-              if (o.kind === "lull" || o.kind === "converse") cls += " talk";
-              return `<button class="${cls}" data-i="${i}" type="button">
-                <span class="lab">${esc(o.label)}</span>
-                <span class="say">${esc(o.line)}</span>
-                <span class="fc">${esc(o.note || "")}</span></button>`;
-            }).join("")}
-          </div>
-        </div>
-        ${sidebar()}
-      </div>`);
-    app.querySelectorAll(".choice").forEach((b) =>
-      b.addEventListener("click", () => pending && pending(opts[+b.getAttribute("data-i")])));
-    return choose();
+      <div class="section-head"><h2>The Guests</h2>
+        <button class="iconbtn" id="back" type="button">Back</button></div>
+      <p style="max-width:64ch;margin-top:-6px">Every one of them has a reason to be nervous, and
+        a secret worth hiding. One of them is a murderer. Your job is to find out which — before
+        the house runs out of guests, or you run out of nights.</p>
+      <div class="gallery">${cards}</div>
+      <div class="btnrow" style="margin-top:20px"><button class="btn" id="start" type="button">Begin the first day</button></div>`);
+    on("back", hero);
+    on("start", startGame);
   }
 
-  function nightUI(lines) {
-    show(`
-      <div class="section-head"><h2>Night of the ${esc(T.ordinal(game.day))} day</h2></div>
-      <div class="diary">${nightLines(lines)}</div>
-      ${deadDossier(true)}
-      <div class="btnrow" style="justify-content:flex-start;margin-top:20px">
-        <button class="btn" id="next" type="button">Begin the next day</button></div>`);
-    document.getElementById("next").onclick = () => pending && pending();
-    return wait();
-  }
+  // =====================================================================
+  //  THE INVESTIGATION LOOP
+  // =====================================================================
+  function startGame() { G = W.create(); G.beginDay(); renderDay(); }
 
-  function finaleHint() {
-    const mark = game.byName[me.target];
-    if (game.living().length === 2 && mark.alive && !mark.caught)
-      return `<p class="daymono"><b>Only you and ${esc(last(mark.name))} are left.</b> This is the last morning — and the last chance to make the night yours.</p>`;
-    return "";
-  }
-
-  function sidebar() {
-    const mark = game.byName[me.target];
-    const susp = Math.min(100, Math.round((me.suspicion / 6) * 100));
-    const huntersKnown = [...known].filter((h) => game.byName[h].alive && !game.byName[h].caught);
+  function hud() {
+    const pillars = G.pillars();
+    const P = (k, label) => `<div class="pill ${pillars.has(k) ? "got" : ""}">${label}</div>`;
+    const heatPct = Math.min(100, Math.round((G.heat / W.HEAT_LETHAL) * 100));
     return `<aside class="side">
-      <div class="who">${A.portrait(me.name, 46)}
-        <div><div class="nm">${esc(me.name)}</div><div class="ti">${esc(me.title)}</div></div></div>
-      <div class="stat"><span class="k">Your mark</span><span class="v">${mark.alive && !mark.caught ? esc(last(mark.name)) : "— slain —"}</span></div>
-      <div class="stat"><span class="k">In hand</span><span class="v">${me.carrying ? esc(me.carrying) : "empty-handed"}</span></div>
-      <div class="stat"><span class="k">Suspicion</span><span class="v"><span class="susp"><i style="width:${susp}%"></i></span></span></div>
-      <div class="stat"><span class="k">Hunts you</span><span class="v">${huntersKnown.length ? huntersKnown.map((h) => esc(last(h))).join(", ") : "unknown"}</span></div>
+      <div class="who">${A.portrait(G.journalist.name, 46)}
+        <div><div class="nm">${esc(G.journalist.name)}</div><div class="ti">${esc(G.journalist.title)}</div></div></div>
+      <div class="stat"><span class="k">The day</span><span class="v">${G.day} of ${G.deadline()}</span></div>
+      <div class="stat"><span class="k">Suspects left</span><span class="v">${G.livingSuspects().length}</span></div>
+      <div class="stat"><span class="k">Killer's eye on you</span><span class="v"><span class="susp"><i style="width:${heatPct}%"></i></span></span></div>
+      <h4 style="margin-top:14px">The case</h4>
+      <div class="pillars">${P("means", "Means")}${P("motive", "Motive")}${P("opportunity", "Opportunity")}</div>
+      <div class="btnrow" style="margin-top:14px;flex-direction:column;gap:8px">
+        <button class="btn ghost" id="casebtn" type="button">Open the case file</button>
+        <button class="btn" id="accusebtn" type="button" ${G.hasCase() ? "" : ""}>Name the killer</button>
+      </div>
     </aside>`;
   }
 
-  function deadDossier(full) {
-    if (!game.deaths.length) return full ? "" : "";
-    const items = game.deaths.map((d) => {
-      const known = deathKnown(d);
-      return `<div class="dead-rec"><div class="d1">† ${esc(d.victim)}</div>
-        <div class="d2">${esc(C.deathDispatch(d, { known, viewer: playerName }))}</div></div>`;
-    }).join("");
-    return `<div class="section-head" style="margin-top:26px"><h2>The Dead</h2></div><div class="reveal-truth">${items}</div>`;
-  }
-
-  // ---- ending -----------------------------------------------------------
-  function endingUI(result) {
-    const oc = C.outcome(result, playerName);
-    const truth = result.deaths.map((d) => `<div class="death-rec">
-      <div class="d1">${esc(C.deathTruth(d))}</div></div>`).join("");
-    const chron = daylog.map((d) => `<div class="diary" style="margin-bottom:14px">${nightLines(d.html)}</div>`).join("");
+  function renderDay() {
+    if (G.status !== "playing") return renderEnd();
+    const news = G.latestDeath()
+      ? `<p class="daymono"><b>${esc(shortName(G.byName[G.latestDeath().victim]))} is dead</b> — found in the ${esc(G.latestDeath().room)}. The company is one fewer, and no one meets anyone's eye.</p>`
+      : `<p class="daymono">No one has died yet. But the bridge is gone, the doors are locked against the storm, and something in the house has already decided how the week will end.</p>`;
+    const approaches = G.approaches().map((a) =>
+      `<button class="choice intent" data-k="${a.key}" type="button">
+        <span class="lab">${esc(a.label)}</span><span class="fc">${esc(a.blurb)}</span></button>`).join("");
     show(`
-      <div class="section-head"><h2>${esc(oc.title)}</h2>
-        <button class="iconbtn" id="again" type="button">Play again</button></div>
-      <p class="verdict outcome-${oc.tier}">${esc(oc.text)}</p>
-
-      <div class="section-head"><h2>The Truth, Entire</h2></div>
-      <div class="reveal-truth">${truth}
-        ${result.unmasked.length ? `<p class="label" style="margin-top:12px">Unmasked</p>${result.unmasked.map((n) => `<div class="truth" style="color:var(--accent-2)">${esc(n)}</div>`).join("")}` : ""}
-      </div>
-
-      <div class="section-head"><h2>Your Chronicle</h2></div>
-      <p style="margin-top:-6px;color:var(--text-dim);font-style:italic">The night, night by night, as ${esc(last(playerName))} lived it.</p>
-      ${chron}
-      <div class="btnrow" style="margin-top:22px">
-        <button class="btn" id="again2" type="button">Play another guest</button>
-        <button class="btn ghost" id="watch2" type="button">See the god's-eye story</button>
+      <div class="stage">
+        <div>
+          <div class="section-head"><h2>Day ${G.day}</h2></div>
+          <div class="chronicler"><div class="byline">The Chronicler</div><p>${esc(S.morning(G))}</p></div>
+          ${news}
+          <div class="choices"><div class="prompt">How do you spend the day?</div>${approaches}</div>
+        </div>
+        ${hud()}
       </div>`);
-    document.getElementById("again").onclick = gallery;
-    document.getElementById("again2").onclick = gallery;
-    document.getElementById("watch2").onclick = () => watch(result);
+    app.querySelectorAll(".choice").forEach((b) => b.addEventListener("click", () => renderTargets(b.getAttribute("data-k"))));
+    on("casebtn", renderCaseFile);
+    on("accusebtn", renderAccuse);
   }
 
-  // ---- watch (god's-eye) ------------------------------------------------
-  async function watch(pre) {
-    let result = pre && pre.events ? pre : null;
-    if (!result) {
-      const g = new MV.Game();
-      result = await g.run((a, o) => MV.autoChoose(g, a, o), null);
-    }
-    const story = T.storyLines(result).map((s) => {
-      if (s.head) return `<div class="head-h">${esc(s.head)}</div><div class="night">${esc(s.sub)}</div>`;
-      if (s.day) return `<div class="day-h">${esc(s.day)}</div>`;
-      if (s.night) return `<div class="night">${esc(s.night)}</div>`;
-      return `<div class="ev ${s.kind}">${esc(s.line)}</div>`;
-    }).join("");
-    const tabs = result.cast.map((c, i) =>
-      `<button class="subtab" role="tab" data-name="${esc(c.name)}" aria-selected="${i === 0}">${esc(last(c.name))}</button>`).join("");
+  function renderTargets(approach) {
+    const targets = G.targets(approach);
+    const opts = targets.map((t) =>
+      `<button class="choice" data-id="${esc(t.id)}" type="button"><span class="lab">${esc(t.label)}</span></button>`).join("");
+    const heads = { examine: "Which scene?", search: "Which room?", interview: "Whom will you press?", observe: "Where?" };
     show(`
-      <div class="section-head"><h2>The Night, As It Happened</h2>
-        <button class="iconbtn" id="back" type="button">Back</button></div>
-      <p class="verdict">${esc(result.verdict)}</p>
-      <div class="story">${story}</div>
-      <div class="section-head"><h2>Read a Chronicle</h2></div>
-      <div class="subtabs" role="tablist">${tabs}</div>
-      <div id="chronOut"></div>`);
-    document.getElementById("back").onclick = hero;
-    const out = document.getElementById("chronOut");
-    const renderChron = (name) => {
-      out.innerHTML = T.chronicleDays(name, result).map((d) =>
-        `<div class="diary" style="margin-bottom:14px">${d.lines.map((l) =>
-          l.h ? `<div class="dh">${esc(l.h)}</div>` : l.o ? `<p class="op">${esc(l.o)}</p>`
-            : l.p ? `<p>${esc(l.p)}</p>` : l.m ? `<p class="mv">${esc(l.m)}</p>`
-              : l.tag ? `<p class="tag">[ ${esc(l.tag)} ]</p>` : "").join("")}</div>`).join("");
+      <div class="stage">
+        <div>
+          <div class="section-head"><h2>Day ${G.day}</h2></div>
+          <div class="choices"><div class="prompt">${esc(heads[approach] || "Where?")}</div>${opts}
+            <button class="choice" id="backday" type="button" style="border-left-color:var(--border)"><span class="lab">Reconsider</span></button>
+          </div>
+        </div>
+        ${hud()}
+      </div>`);
+    app.querySelectorAll("[data-id]").forEach((b) =>
+      b.addEventListener("click", () => renderReveal(approach, b.getAttribute("data-id"))));
+    on("backday", renderDay);
+    on("casebtn", renderCaseFile);
+    on("accusebtn", renderAccuse);
+  }
+
+  function renderReveal(approach, id) {
+    const lines = G.investigate(approach, id);
+    const body = lines.map((l) => {
+      if (l.pillar) return `<p class="evidence pillar-${l.pillar}"><span class="etag">${cap(l.pillar)}</span>${esc(l.text)}</p>`;
+      if (l.cleared) return `<p class="evidence cleared">${esc(l.text)}</p>`;
+      if (l.heat) return `<p class="mv">${esc(l.text)}</p>`;
+      return `<p>${esc(l.text)}</p>`;
+    }).join("");
+    const gotCase = G.hasCase();
+    show(`
+      <div class="stage">
+        <div>
+          <div class="section-head"><h2>Day ${G.day} — what you found</h2></div>
+          <div class="diary">${body}
+            ${gotCase ? `<p class="tag">[ You have all three pillars now. You can name the killer — if you're sure who they point to. ]</p>` : ""}</div>
+          <div class="btnrow" style="margin-top:18px;justify-content:flex-start">
+            <button class="btn" id="accusebtn2" type="button">Name the killer</button>
+            <button class="btn ghost" id="night" type="button">Let the night fall</button>
+            <button class="btn ghost" id="casebtn2" type="button">Case file</button>
+          </div>
+        </div>
+        ${hud()}
+      </div>`);
+    on("night", letNightFall);
+    on("accusebtn2", renderAccuse);
+    on("accusebtn", renderAccuse);
+    on("casebtn2", renderCaseFile);
+    on("casebtn", renderCaseFile);
+  }
+
+  function letNightFall() {
+    G.nightfall();
+    if (G.status !== "playing") return renderEnd();
+    renderDay();
+  }
+
+  // ---- the case file ----------------------------------------------------
+  function renderCaseFile() {
+    const pill = (k, label) => {
+      const got = G.pillars().has(k);
+      const text = got ? G.mystery.pillars[k] : "— not yet established —";
+      return `<div class="dead-rec"><div class="d1">${label} ${got ? "✓" : ""}</div><div class="d2">${esc(text)}</div></div>`;
     };
-    app.querySelectorAll(".subtab").forEach((t) => t.addEventListener("click", () => {
-      app.querySelectorAll(".subtab").forEach((x) => x.setAttribute("aria-selected", "false"));
-      t.setAttribute("aria-selected", "true");
-      renderChron(t.getAttribute("data-name"));
-    }));
-    renderChron(result.cast[0].name);
+    const suspects = G.order.map((n) => {
+      const c = G.byName[n], f = G.caseFile[n];
+      const dead = !G.alive.has(n);
+      const bits = [];
+      if (f.herring) bits.push(`<div class="d2">${esc(f.herring)}</div>`);
+      if (f.alibi) bits.push(`<div class="d2 cleared">${esc((G.mystery.herrings[n] || {}).alibi || "Cleared.")}</div>`);
+      if (!bits.length) bits.push(`<div class="d2" style="opacity:.6">You have nothing on them yet.</div>`);
+      return `<div class="dead-rec"><div class="d1">${dead ? "† " : ""}${esc(shortName(c))} — ${esc(c.title)}${f.alibi ? " · cleared" : ""}</div>${bits.join("")}</div>`;
+    }).join("");
+    show(`
+      <div class="section-head"><h2>The Case File</h2>
+        <button class="iconbtn" id="back" type="button">Back to the day</button></div>
+      <h3 class="label" style="margin-top:6px">The three pillars</h3>
+      <div class="reveal-truth">${pill("means", "Means")}${pill("motive", "Motive")}${pill("opportunity", "Opportunity")}</div>
+      <h3 class="label" style="margin-top:20px">The suspects</h3>
+      <div class="reveal-truth">${suspects}</div>
+      <div class="btnrow" style="margin-top:20px"><button class="btn" id="accuse" type="button">Name the killer</button></div>`);
+    on("back", renderDay);
+    on("accuse", renderAccuse);
+  }
+
+  // ---- the accusation ---------------------------------------------------
+  function renderAccuse() {
+    const cards = G.order.map((n) => {
+      const c = G.byName[n], dead = !G.alive.has(n);
+      return `<button class="choice ${dead ? "" : "kill"}" data-name="${esc(n)}" type="button">
+        <span class="lab">${dead ? "† " : ""}Accuse ${esc(shortName(c))}</span>
+        <span class="fc">${esc(c.title)}${dead ? " — already dead" : ""}</span></button>`;
+    }).join("");
+    show(`
+      <div class="section-head"><h2>Name the Killer</h2>
+        <button class="iconbtn" id="back" type="button">Not yet</button></div>
+      <p style="max-width:64ch;margin-top:-6px">This is the one move you cannot take back. Name the
+        wrong person, or the right person without the whole case behind you, and it is over. You
+        have <b>${G.pillars().size} of 3</b> pillars. Choose.</p>
+      <div class="choices">${cards}</div>`);
+    on("back", renderDay);
+    app.querySelectorAll("[data-name]").forEach((b) =>
+      b.addEventListener("click", () => { G.accuse(b.getAttribute("data-name")); renderEnd(); }));
+  }
+
+  // ---- the ending -------------------------------------------------------
+  function renderEnd() {
+    const r = G.result || { tier: "defeat", title: "The End", text: "" };
+    const dead = G.deaths.map((d) => `<div class="dead-rec"><div class="d1">† ${esc(shortName(G.byName[d.victim]))}</div><div class="d2">Killed in the ${esc(d.room)}, night ${d.day}.</div></div>`).join("");
+    show(`
+      <div class="section-head"><h2>${esc(r.title)}</h2>
+        <button class="iconbtn" id="again" type="button">New assignment</button></div>
+      <p class="verdict outcome-${r.tier}">${esc(r.text)}</p>
+      <div class="section-head"><h2>The Killer Was</h2></div>
+      <div class="reveal-truth">
+        <div class="dead-rec"><div class="d1">${esc(G.byName[G.killer].name)} — ${esc(G.byName[G.killer].title)}</div>
+          <div class="d2">${esc(G.mystery.truth)}</div></div>
+        ${dead ? `<h3 class="label" style="margin-top:14px">The dead</h3>${dead}` : ""}
+      </div>
+      <div class="btnrow" style="margin-top:22px"><button class="btn" id="again2" type="button">Take a new assignment</button></div>`);
+    on("again", personae);
+    on("again2", personae);
   }
 
   function escapeHtml(s) {
@@ -532,11 +304,11 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   }
 
-  // Let a world be chosen by URL (?world=id) — the default is Ravenhollow.
+  // Choose a world by URL (?world=id); default is the built-in one.
   try {
     const wanted = new URLSearchParams(location.search).get("world");
     if (wanted && MV.WORLDS[wanted]) MV.useWorld(wanted);
-  } catch (e) { /* no query string, no matter */ }
+  } catch (e) { /* no query string */ }
 
   hero();
 })();

@@ -108,5 +108,32 @@
         motive: "She has read the Colonel's soul and found it past saving. Some mercies can only be delivered with hemlock.",
         secret: "Her 'visions' are cover — she has followed Mace for years." },
     ],
+
+    // ---- whodunit: one killer, and the reporter sent to unmask them --------
+    mode: "whodunit",
+    journalist: {
+      name: "Miss Adela Quill", title: "the Correspondent",
+      hook: "A society correspondent with a nose for the story beneath the story.",
+    },
+    mystery: {
+      killer: "Cornelius Blackwood",
+      deadline: 7,
+      hotRooms: ["Study", "Master Bedroom"],  // prying here draws the killer's eye
+      truth: "Cornelius Blackwood gathered every soul who had ever wronged him under his own roof, cut the bridge, and set about erasing them one by one — vanishing after each killing through passages only he knew. The reunion was an execution, and he meant to be the only name left alive to tell it.",
+      pillars: {
+        means: "You examine where the body was found: a room with a single door, and that door watched all evening — yet the victim was reached, and killed, and no one ever crossed the threshold. Only a house full of hidden ways, and a man who knows them, makes that possible.",
+        motive: "Blackwood's study gives up its secret — a locked ledger, and every name in it a guest of this house. Debts, ruinations, old betrayals, each of them owed to Cornelius Blackwood. This was never a reunion. It is a reckoning, and he means to collect in full.",
+        opportunity: "Cross-referencing the accounts, a pattern sets like cold fat: every guest can place every other guest at each death — save one. The host is forever 'seeing to the house,' forever one room away, forever unwitnessed. His alibi is the whole manor, which is to say none at all.",
+      },
+      motiveRoom: "Study",  // searching here yields the motive pillar
+      herrings: {
+        "Dr. Adrian Vell": { clue: "Dr. Vell's bag is a poisoner's dream, and more than one guest went quiet as though drugged.", alibi: "But Vell was insensible on his own morphine the night of the second death — a dozen witnesses saw him slumped and snoring in the Library." },
+        "Miss Isolde Frayne": { clue: "Miss Frayne is plainly not who she claims; the accent is invented, and she slips through locked doors like the pickpocket she once was.", alibi: "Yet Frayne was weeping in full view in the Ballroom when the third guest died — and a thief steals; she does not slaughter." },
+        "Colonel Roderick Mace": { clue: "The Colonel has killed before, by his own admission, and does not appear to lose much sleep over it.", alibi: "But Mace is too large and too loud to cross this house unseen, and he was at his bottle, watched by others, each night a body fell." },
+        "Silas Crane": { clue: "Crane has sold every secret in this house at least once, and owes debts that a few deaths would conveniently cancel.", alibi: "He is also a coward to the marrow, found bolted inside his own room each night, white as the bedsheets." },
+        "Lady Bianca Ashford": { clue: "Lady Ashford has poisoned before — she as good as boasts of it — and stood to gain from more than one of these deaths.", alibi: "But she does not soil her own hands, and knows no way through the walls; the killings were beneath her, in every sense she'd care to name." },
+        "Mother Genevieve": { clue: "Mother Genevieve deals in hemlock and speaks of divine judgement as though she has been appointed to carry it out.", alibi: "Yet she was at her prayers, aloud and within earshot, on each of the nights that mattered — the Almighty her alibi, and a roomful of witnesses besides." },
+      },
+    },
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);
