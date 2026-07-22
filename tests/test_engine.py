@@ -125,12 +125,17 @@ class TestOptions(unittest.TestCase):
 
 class TestChoosers(unittest.TestCase):
 
-    def test_all_waiting_yields_no_deaths(self):
-        # Force everyone to simply wait every turn -> nobody ever dies, and all
-        # seven are still standing when the storm breaks.
+    def test_a_body_falls_every_day(self):
+        # Even if every guest merely waits, the guaranteed daily murder means a
+        # body falls each day and the night resolves to a lone survivor.
         result = Game(seed=4, chooser=_AlwaysWait()).run()
-        self.assertEqual(result.deaths, [])
-        self.assertEqual(len(result.survivors), 7)
+        self.assertTrue(result.deaths)
+        per_day = {}
+        for d in result.deaths:
+            per_day[d.day] = per_day.get(d.day, 0) + 1
+        self.assertEqual(sorted(per_day), list(range(1, result.days + 1)))
+        self.assertTrue(all(c == 1 for c in per_day.values()))
+        self.assertLessEqual(len(result.survivors), 1)
 
 
 class _AlwaysWait:

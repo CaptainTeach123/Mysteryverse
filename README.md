@@ -40,11 +40,24 @@ the host, knows the manor's hidden passages.
 
 ## Play in the browser (zero-cost website)
 
-There's a full graphical version in [`docs/`](docs/): the deterministic engine
-ported to JavaScript, flat mid-century SVG art for every guest and room, and the
-whole choose-your-own-adventure — pick a guest, choose their day from a menu of
-options with forecast outcomes, and get an illustrated end-of-day write-up in
-their voice.
+There's a full graphical **storybook** in [`docs/`](docs/): the deterministic
+engine ported to JavaScript, flat mid-century SVG art for every guest and room,
+and an authored branching narrative.
+
+- **Pick a guest** and an envelope opens with your invitation to Ravenhollow —
+  revealing the one guest you came to kill. Who has come for *you*, you learn
+  only through play (an attempt on your life, a confession, a page of a diary).
+- **Two choices a day.** A morning **intent** (three options, in your guest's
+  voice) sets where you go; then one **scene** with **three actions** — spoken
+  aloud or thought to yourself. Detailed dispatches report each night's dead.
+- **A body falls every day** until one guest remains. **Your mark can die by no
+  hand but yours.** Win by outliving them all *and* striking your mark down;
+  play recklessly and you'll be knifed in a back room or unmasked by the house.
+- Every one of the seven has a deterministic path to victory (verified by
+  `web/winnability.mjs`), and none of it is random.
+
+The classic auto-simulation is still there too — "Watch the night unfold" runs
+the whole thing on its own, and you can read it back through any guest's eyes.
 
 It is **pure static files** — no server, no build step, **no AI calls at
 run-time** — so it runs entirely in the visitor's browser and costs nothing to

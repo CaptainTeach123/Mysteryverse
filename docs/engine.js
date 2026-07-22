@@ -155,6 +155,20 @@
         }
         return null;
       },
+      firstStep(start, goal, knows) {
+        if (start === goal) return null;
+        const seen = new Set([start]);
+        const frontier = [];
+        for (const nx of this.neighbors(start, knows)) { frontier.push([nx, nx]); seen.add(nx); }
+        while (frontier.length) {
+          const [cur, first] = frontier.shift();
+          if (cur === goal) return first;
+          for (const nx of this.neighbors(cur, knows)) {
+            if (!seen.has(nx)) { seen.add(nx); frontier.push([nx, first]); }
+          }
+        }
+        return null;
+      },
     };
   }
 
@@ -164,6 +178,12 @@
       opts = opts || {};
       this.maxDays = opts.maxDays || MAX_DAYS;
       this.turnsPerDay = opts.turnsPerDay || TURNS_PER_DAY;
+      // Interactive play: the guest you control, and their reserved mark. No
+      // one else may kill your mark — the vengeance must be yours.
+      this.playerName = opts.playerName || null;
+      this.reservedMark = opts.reservedMark || null;
+      // Set on a day the player lies low: no one can reach them that day.
+      this.playerHidden = false;
       this.mansion = buildMansion();
       this.cast = buildCast();
       this.byName = {};
@@ -230,6 +250,8 @@
       const dulled = target.vices.some((v) => DULLING_VICES.has(v));
       if (dulled && (room.lure || room.providesPoison)) def -= 2;
       if (skill(attacker, "stealth") >= 4 && target.suspicion === 0) off += 1;
+      // A mark you've drawn in (lulled) never sees the blow coming.
+      if (target._lulledBy === attacker.name) off += 3;
       return off - def;
     }
 
@@ -266,6 +288,10 @@
       if (this.murderToday === null) {
         for (const [method, weapon] of this.methodsAvailable(actor, room)) {
           for (const victim of others) {
+            // No one but the player may lay a hand on the player's mark.
+            if (victim.name === this.reservedMark && actor.name !== this.playerName) continue;
+            // While the player lies low, they are beyond anyone's reach.
+            if (victim.name === this.playerName && this.playerHidden && actor.name !== this.playerName) continue;
             const margin = this.attackMargin(actor, victim, method, weapon);
             const witnesses = others.filter((o) => o !== victim);
             const risk = (witnesses.length ? 5 : 0) + (method === "violence" ? 3 : 1);
@@ -346,42 +372,86 @@
 
     resolveAttempt(attacker, target, method, weapon, witnessed) {
       const margin = this.attackMargin(attacker, target, method, weapon);
-      const room = this.mansion.rooms[attacker.room];
+      if (margin >= 1) { this._commitKill(attacker, target, method, weapon, witnessed); return true; }
       const weaponName = method === "violence" ? weapon : "a doctored glass";
       const onlookers = this.inRoom(attacker.room, attacker.name).filter((o) => o !== target);
+      attacker.suspicion += witnessed ? 5 : 4;
+      this.remember(attacker.name, 3, "own_botch", { victim: target.name, room: attacker.room });
+      this.remember(target.name, 3, "attacked", { culprit: attacker.name, room: attacker.room });
+      for (const o of onlookers)
+        this.remember(o.name, 3, "saw_botch", { culprit: attacker.name, victim: target.name, room: attacker.room });
+      this.log({ type: "botch", actor: attacker.name, victim: target.name, room: attacker.room, weapon: weaponName, method, witnessed });
+      this.flee(target, attacker);
+      return false;
+    }
 
-      if (margin >= 1) {
-        target.alive = false;
-        const occ = this.mansion.rooms[target.room].occupants;
-        occ.splice(occ.indexOf(target.name), 1);
-        room.bodies.push(target.name);
-        this._discovered[attacker.name].add(target.name);
-        if (target.carrying) { room.weapon = room.weapon || target.carrying; target.carrying = null; }
-        attacker.kills.push(target.name);
-        if (witnessed) attacker.suspicion += 5;
-        let trace = method === "violence" ? 3 : 1;
-        if (skill(attacker, "stealth") >= 4) trace -= 1;
-        attacker.suspicion += Math.max(0, trace) + 1;
-        const herring = this.redHerring(attacker, target);
-        const death = {
-          day: this.day, victim: target.name, culprit: attacker.name,
-          room: attacker.room, weapon: weaponName, method, witnessed, redHerring: herring,
-        };
-        this.deaths.push(death);
-        this.murderToday = death;
-        this.remember(attacker.name, 3, "own_kill", { victim: target.name, room: attacker.room, method, weapon: weaponName });
-        for (const o of onlookers)
-          this.remember(o.name, 3, "witness_kill", { culprit: attacker.name, victim: target.name, room: attacker.room });
-        this.log({ type: "kill", actor: attacker.name, victim: target.name, room: attacker.room, weapon: weaponName, method, witnessed, avenged: attacker.target === target.name });
-      } else {
-        attacker.suspicion += witnessed ? 5 : 4;
-        this.remember(attacker.name, 3, "own_botch", { victim: target.name, room: attacker.room });
-        this.remember(target.name, 3, "attacked", { culprit: attacker.name, room: attacker.room });
-        for (const o of onlookers)
-          this.remember(o.name, 3, "saw_botch", { culprit: attacker.name, victim: target.name, room: attacker.room });
-        this.log({ type: "botch", actor: attacker.name, victim: target.name, room: attacker.room, weapon: weaponName, method, witnessed });
-        this.flee(target, attacker);
+    // The mechanics of a completed murder, shared by a chosen strike and by the
+    // guaranteed daily death. Always kills.
+    _commitKill(attacker, target, method, weapon, witnessed) {
+      const room = this.mansion.rooms[attacker.room];
+      const weaponName = method === "violence" ? (weapon || "bare hands") : "a doctored glass";
+      const onlookers = this.inRoom(attacker.room, attacker.name).filter((o) => o !== target);
+      target.alive = false;
+      const occ = this.mansion.rooms[target.room].occupants;
+      if (occ.includes(target.name)) occ.splice(occ.indexOf(target.name), 1);
+      room.bodies.push(target.name);
+      this._discovered[attacker.name].add(target.name);
+      if (target.carrying) { room.weapon = room.weapon || target.carrying; target.carrying = null; }
+      attacker.kills.push(target.name);
+      if (witnessed) attacker.suspicion += 5;
+      let trace = method === "violence" ? 3 : 1;
+      if (skill(attacker, "stealth") >= 4) trace -= 1;
+      attacker.suspicion += Math.max(0, trace) + 1;
+      const herring = this.redHerring(attacker, target);
+      const death = {
+        day: this.day, victim: target.name, culprit: attacker.name,
+        room: attacker.room, weapon: weaponName, method, witnessed, redHerring: herring,
+      };
+      this.deaths.push(death);
+      this.murderToday = death;
+      this.remember(attacker.name, 3, "own_kill", { victim: target.name, room: attacker.room, method, weapon: weaponName });
+      for (const o of onlookers)
+        this.remember(o.name, 3, "witness_kill", { culprit: attacker.name, victim: target.name, room: attacker.room });
+      this.log({ type: "kill", actor: attacker.name, victim: target.name, room: attacker.room, weapon: weaponName, method, witnessed, avenged: attacker.target === target.name });
+      return death;
+    }
+
+    // Guarantee a body a day: if the day would otherwise pass without a murder,
+    // the best-positioned killer finds their victim under cover of the storm.
+    // The player's reserved mark, and the player, are protected from this.
+    forceMurder() {
+      if (this.murderToday) return;
+      const living = this.living();
+      if (living.length <= 1) return;
+      const protect = new Set([this.reservedMark, this.playerName].filter(Boolean));
+      let best = null, bestScore = -1e9;
+      for (const A of living) {
+        for (const B of living) {
+          if (A === B) continue;
+          if (protect.has(B.name)) continue;    // spare the player and their mark
+          const room = this.mansion.rooms[B.room];
+          const methods = [];
+          if (room.providesPoison && skill(A, "poison") >= 3) methods.push(["poison", null]);
+          if (A.carrying) methods.push(["violence", A.carrying]);
+          methods.push(["violence", "bare hands"]);
+          let m = -99, meth = "violence", wpn = "bare hands";
+          for (const [mm, ww] of methods) { const mar = this.attackMargin(A, B, mm, ww); if (mar > m) { m = mar; meth = mm; wpn = ww; } }
+          const vendetta = A.target === B.name ? 4 : 0;
+          const dist = this.mansion.bfsDistance(A.room, B.room, this.knowsPassages(A)) || 0;
+          const score = m + vendetta - dist * 0.5;
+          if (score > bestScore) { bestScore = score; best = { A, B, meth, wpn }; }
+        }
       }
+      if (!best) return;
+      const { A, B, meth, wpn } = best;
+      if (A.room !== B.room) {
+        const occ = this.mansion.rooms[A.room].occupants;
+        if (occ.includes(A.name)) occ.splice(occ.indexOf(A.name), 1);
+        A.room = B.room;
+        this.mansion.rooms[B.room].occupants.push(A.name);
+      }
+      const witnessed = this.inRoom(B.room, A.name).some((o) => o !== B);
+      this._commitKill(A, B, meth, meth === "violence" ? (wpn) : null, witnessed);
     }
 
     flee(actor, fromWhom) {
@@ -414,7 +484,9 @@
     resolveExposure() {
       const living = this.living();
       if (living.length <= 2) return;
-      const suspects = living.filter((c) => c.suspicion >= EXPOSE_THRESHOLD);
+      // The player's mark is fated to fall by the player's hand — the household
+      // never gets to unmask them first.
+      const suspects = living.filter((c) => c.suspicion >= EXPOSE_THRESHOLD && c.name !== this.reservedMark);
       if (!suspects.length) return;
       suspects.sort((a, b) => (b.suspicion - a.suspicion) || (b.kills.length - a.kills.length));
       const culprit = suspects[0];
@@ -443,14 +515,16 @@
     // options) may return a Promise; onDayEnd(day) is awaited each nightfall.
     async run(chooseFor, onDayEnd) {
       this.log({ type: "prologue" });
-      let quiet = 0;
       while (this.day < this.maxDays && this.living().length > 1) {
         this.day += 1;
         this.murderToday = null;
         this.log({ type: "daybreak", day: this.day, survivors: this.living().map((c) => c.name) });
-        for (let t = 0; t < this.turnsPerDay; t++) {
+        // Keep taking turns until a murder happens (a body a day is the rule),
+        // with a hard cap so a true deadlock still resolves via forceMurder.
+        for (let t = 0; t < this.turnsPerDay * 4; t++) {
+          if (this.murderToday || this.living().length <= 1) break;
           for (const actor of this.orderedLiving()) {
-            if (this.living().length <= 1) break;
+            if (this.murderToday || this.living().length <= 1) break;
             if (!actor.alive || actor.caught) continue;
             const options = this.options(actor);
             if (!options.length) continue;
@@ -458,13 +532,12 @@
             this.apply(actor, choice);
           }
         }
+        if (!this.murderToday && this.living().length > 1) this.forceMurder();
         const victim = this.murderToday ? this.murderToday.victim : null;
         this.log({ type: "nightfall", day: this.day, victim });
         this.resolveExposure();
         this.decaySuspicion();
         if (onDayEnd) await onDayEnd(this.day);
-        quiet = this.murderToday ? 0 : quiet + 1;
-        if (quiet >= 3) break;   // the scheming has burned out; the storm passes
       }
       return this.finish();
     }

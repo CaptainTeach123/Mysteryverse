@@ -355,62 +355,111 @@ class Game:
     # -- resolving an attempt --------------------------------------------
     def _resolve_attempt(self, attacker: Character, target: Character,
                          method: str, weapon: str | None,
-                         witnessed: bool) -> None:
+                         witnessed: bool) -> bool:
         margin = self._attack_margin(attacker, target, method, weapon)
-        room = self.mansion.room(attacker.room)
+        if margin >= 1:
+            self._commit_kill(attacker, target, method, weapon, witnessed)
+            return True
         weapon_name = weapon if method == "violence" else "a doctored glass"
         onlookers = [o for o in self._in_room(attacker.room, exclude=attacker.name)
                      if o is not target]
+        # A botch: the target lives, and now they know.
+        attacker.suspicion += 5 if witnessed else 4
+        self._remember(attacker.name, 3, "own_botch", victim=target.name,
+                       room=attacker.room)
+        self._remember(target.name, 3, "attacked", culprit=attacker.name,
+                       room=attacker.room)
+        for o in onlookers:
+            self._remember(o.name, 3, "saw_botch", culprit=attacker.name,
+                           victim=target.name, room=attacker.room)
+        self._log(type="botch", actor=attacker.name, victim=target.name,
+                  room=attacker.room, weapon=weapon_name, method=method,
+                  witnessed=witnessed)
+        self._flee(target, from_whom=attacker)
+        return False
 
-        if margin >= 1:
-            # A kill -- the day's one death. Pre-determined by the margin.
-            target.alive = False
+    def _commit_kill(self, attacker: Character, target: Character,
+                     method: str, weapon: str | None, witnessed: bool) -> None:
+        """A completed murder -- shared by a chosen strike and the guaranteed
+        daily death. Always kills."""
+        room = self.mansion.room(attacker.room)
+        weapon_name = (weapon or "bare hands") if method == "violence" \
+            else "a doctored glass"
+        onlookers = [o for o in self._in_room(attacker.room, exclude=attacker.name)
+                     if o is not target]
+        target.alive = False
+        if target.name in self.mansion.room(target.room).occupants:
             self.mansion.room(target.room).occupants.remove(target.name)
-            room.bodies.append(target.name)
-            self._discovered[attacker.name].add(target.name)
-            if target.carrying:
-                room.weapon = room.weapon or target.carrying
-                target.carrying = None
-            attacker.kills.append(target.name)
+        room.bodies.append(target.name)
+        self._discovered[attacker.name].add(target.name)
+        if target.carrying:
+            room.weapon = room.weapon or target.carrying
+            target.carrying = None
+        attacker.kills.append(target.name)
+        if witnessed:
+            attacker.suspicion += 5
+        trace = 3 if method == "violence" else 1
+        if attacker.skill("stealth") >= 4:
+            trace -= 1
+        attacker.suspicion += max(0, trace) + 1
+        herring = self._red_herring(attacker, target)
+        death = Death(self.day, target.name, attacker.name, attacker.room,
+                      weapon_name, method, witnessed, herring)
+        self.deaths.append(death)
+        self.murder_today = death
+        self._remember(attacker.name, 3, "own_kill", victim=target.name,
+                       room=attacker.room, method=method, weapon=weapon_name)
+        for o in onlookers:
+            self._remember(o.name, 3, "witness_kill", culprit=attacker.name,
+                           victim=target.name, room=attacker.room)
+        self._log(type="kill", actor=attacker.name, victim=target.name,
+                  room=attacker.room, weapon=weapon_name, method=method,
+                  witnessed=witnessed, avenged=(attacker.target == target.name))
 
-            if witnessed:
-                attacker.suspicion += 5
-            # Trace left behind is deterministic: violence is messy, poison is
-            # quiet, and a skilled sneak leaves less of either.
-            trace = 3 if method == "violence" else 1
-            if attacker.skill("stealth") >= 4:
-                trace -= 1
-            attacker.suspicion += max(0, trace) + 1
-
-            herring = self._red_herring(attacker, target)
-            death = Death(self.day, target.name, attacker.name, attacker.room,
-                          weapon_name, method, witnessed, herring)
-            self.deaths.append(death)
-            self.murder_today = death
-
-            self._remember(attacker.name, 3, "own_kill", victim=target.name,
-                           room=attacker.room, method=method, weapon=weapon_name)
-            for o in onlookers:
-                self._remember(o.name, 3, "witness_kill", culprit=attacker.name,
-                               victim=target.name, room=attacker.room)
-            self._log(type="kill", actor=attacker.name, victim=target.name,
-                      room=attacker.room, weapon=weapon_name, method=method,
-                      witnessed=witnessed,
-                      avenged=(attacker.target == target.name))
-        else:
-            # A botch: the target lives, and now they know.
-            attacker.suspicion += 5 if witnessed else 4
-            self._remember(attacker.name, 3, "own_botch", victim=target.name,
-                           room=attacker.room)
-            self._remember(target.name, 3, "attacked", culprit=attacker.name,
-                           room=attacker.room)
-            for o in onlookers:
-                self._remember(o.name, 3, "saw_botch", culprit=attacker.name,
-                               victim=target.name, room=attacker.room)
-            self._log(type="botch", actor=attacker.name, victim=target.name,
-                      room=attacker.room, weapon=weapon_name, method=method,
-                      witnessed=witnessed)
-            self._flee(target, from_whom=attacker)
+    def _force_murder(self) -> None:
+        """Guarantee a body a day: if a day would pass with no murder, the
+        best-positioned killer finds their victim under cover of the storm."""
+        if self.murder_today is not None:
+            return
+        living = self._living()
+        if len(living) <= 1:
+            return
+        best = None
+        best_score = -1e9
+        for a in living:
+            for b in living:
+                if a is b:
+                    continue
+                room = self.mansion.room(b.room)
+                methods = []
+                if room.provides_poison and a.skill("poison") >= 3:
+                    methods.append(("poison", None))
+                if a.carrying:
+                    methods.append(("violence", a.carrying))
+                methods.append(("violence", "bare hands"))
+                m, meth, wpn = -99, "violence", "bare hands"
+                for mm, ww in methods:
+                    mar = self._attack_margin(a, b, mm, ww)
+                    if mar > m:
+                        m, meth, wpn = mar, mm, ww
+                vendetta = 4 if a.target == b.name else 0
+                dist = self.mansion.bfs_distance(
+                    a.room, b.room, knows_passages=self._knows_passages(a)) or 0
+                score = m + vendetta - dist * 0.5
+                if score > best_score:
+                    best_score = score
+                    best = (a, b, meth, wpn)
+        if best is None:
+            return
+        a, b, meth, wpn = best
+        if a.room != b.room:
+            self.mansion.room(a.room).occupants.remove(a.name)
+            a.room = b.room
+            self.mansion.room(b.room).occupants.append(a.name)
+        witnessed = any(o is not b for o in
+                        self._in_room(b.room, exclude=a.name))
+        self._commit_kill(a, b, meth, wpn if meth == "violence" else None,
+                          witnessed)
 
     def _flee(self, actor: Character, from_whom: Character) -> None:
         exits = self.mansion.neighbors(actor.room,
@@ -474,30 +523,31 @@ class Game:
     # -- main loop --------------------------------------------------------
     def run(self) -> GameResult:
         self._log(type="prologue")
-        quiet = 0
         while self.day < self.max_days and len(self._living()) > 1:
             self.day += 1
             self.murder_today = None
             self._log(type="daybreak", day=self.day,
                       survivors=[c.name for c in self._living()])
-            for _ in range(self.turns_per_day):
-                # Fixed initiative order every day -> a stable, replayable night.
+            # Keep taking turns until a body falls -- a murder a day is the rule
+            # -- with a hard cap so a deadlock still resolves via _force_murder.
+            for _ in range(self.turns_per_day * 4):
+                if self.murder_today or len(self._living()) <= 1:
+                    break
                 living = {c.name for c in self._living()}
                 order = [self.by_name[n] for n in self.initiative
                          if n in living]
                 for actor in order:
-                    if len(self._living()) <= 1:
+                    if self.murder_today or len(self._living()) <= 1:
                         break
                     self._take_turn(actor)
+            if not self.murder_today and len(self._living()) > 1:
+                self._force_murder()
             victim = self.murder_today.victim if self.murder_today else None
             self._log(type="nightfall", day=self.day, victim=victim)
             self._resolve_exposure()
             self._decay_suspicion()
             if self.nightfall_hook is not None:
                 self.nightfall_hook(self, self.day)
-            quiet = 0 if self.murder_today else quiet + 1
-            if quiet >= 3:
-                break  # the scheming has burned out; the storm passes
         return self._finish()
 
     def _finish(self) -> GameResult:
