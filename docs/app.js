@@ -31,18 +31,27 @@
   const wait = () => new Promise((res) => { pending = () => { pending = null; res(); }; });
   const choose = () => new Promise((res) => { pending = (v) => { pending = null; res(v); }; });
 
+  const NUMWORD = ["no", "one", "two", "three", "four", "five", "six", "seven",
+    "eight", "nine", "ten", "eleven", "twelve"];
+  const castCount = () => MV.world.cast.length;
+  const numword = (n) => NUMWORD[n] || String(n);
+  const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+  const localeName = () => MV.world.locale.name;
+
   // ---- hero -------------------------------------------------------------
   function hero() {
+    document.querySelector(".brand").textContent = localeName();
+    const n = castCount();
     show(`
       <section class="hero">
         <div class="art">${A.manor()}</div>
         <div class="hero-copy">
           <div class="kicker">A Game of Intrigue</div>
-          <h1>Ravenhollow<br/>Manor</h1>
-          <p class="tag">The storm has taken the bridge. Seven guests were invited,
-            each with a private reason to see another dead. A body falls every day
-            until one alone remains. Will it be you — and will your quarry fall by
-            your hand first?</p>
+          <h1>${esc(cap(localeName()))}</h1>
+          <p class="tag">A storm with no way out, and ${esc(numword(n))} strangers
+            shut in together — each with a private reason to see another dead. A
+            body falls every day until one alone remains. Will it be you — and
+            will your quarry fall by your hand first?</p>
           <div class="btnrow">
             <button class="btn" id="toGallery" type="button">Choose your guest</button>
             <button class="btn ghost" id="toWatch" type="button">Watch the night unfold</button>
@@ -77,7 +86,7 @@
             ${top.map(([k, v]) => `<span class="chip skill">${k} ${v}</span>`).join("")}
             ${c.vices.map((v) => `<span class="chip vice">${v}</span>`).join("")}
           </div>
-          <p class="motive">${esc(C.HOOKS[c.name])}</p>
+          <p class="motive">${esc(C.hook(c))}</p>
           <button class="btn" data-play="${esc(c.name)}" type="button">Play as ${esc(last(c.name))}</button>
         </div>
       </article>`;
@@ -85,9 +94,9 @@
     show(`
       <div class="section-head"><h2>The Guest List</h2>
         <button class="iconbtn" id="back" type="button">Back</button></div>
-      <p style="max-width:62ch;margin-top:-6px">Seven strangers, snowed in together. Choose the
-        one whose eyes you'll see the night through. What they want — and who wants them — is
-        theirs to know, and yours to discover.</p>
+      <p style="max-width:62ch;margin-top:-6px">${esc(cap(numword(castCount())))} strangers, shut in
+        together. Choose the one whose eyes you'll see the night through. What they want — and
+        who wants them — is theirs to know, and yours to discover.</p>
       <div class="gallery">${cards}</div>`);
     document.getElementById("back").onclick = hero;
     app.querySelectorAll("[data-play]").forEach((b) =>
@@ -97,32 +106,27 @@
   // ---- the invitation (opening letter animation) -----------------------
   function invitation(name) {
     const c = MV.buildCast().find((x) => x.name === name);
-    const isHost = name === "Cornelius Blackwood";
+    const place = cap(localeName());
     const markFull = c.target;
-    const body = isHost
-      ? `<p>In your own hand, the guest list for the weekend — every soul who ever wronged the
-          master of Ravenhollow, gathered at last beneath his roof.</p>
-         <p class="purpose">${esc(c.motive)}</p>
-         <p>Your quarry before the storm blows out: <b>${esc(markFull)}</b>. And you know precisely
-          which of them has come for you — you read their letters before they ever crossed your
-          bridge.</p>`
-      : `<p>You are most cordially invited to pass the coming nights at Ravenhollow Manor, that we
-          might settle at last the small matter still outstanding between us. The bridge grows
-          treacherous in a storm; once across it, think nothing of leaving before morning.</p>
-         <p class="sig">— C. Blackwood, at the Manor</p>
-         <hr/>
-         <p><i>But you did not cross that bridge for the host's claret.</i></p>
-         <p class="purpose">${esc(c.motive)}</p>
-         <p>Your quarry, before this storm blows out: <b>${esc(markFull)}</b>. Whether anyone in
-          this house has come for <i>you</i>, you do not yet know.</p>`;
+    const given = name.replace(/^(Dr|Lady|Miss|Colonel|Mother|Mr|Mrs|Sir|Lord|Countess|Count|Conductor|Sister|Father|Captain)\.?\s+/, "");
+    const body = `
+      <p>You crossed no threshold of ${esc(place)} by accident. Whatever pretext carried you here —
+        an invitation, a fare, a summons in a familiar hand — the storm has since seen to it that
+        no one leaves before morning.</p>
+      <hr/>
+      <p><i>And you did not come for the company.</i></p>
+      <p class="purpose">${esc(c.motive)}</p>
+      <p>Your quarry, before this storm blows out: <b>${esc(markFull)}</b>. ${c.knowsHunters
+        ? "And you know precisely which of the others has come, in turn, for you."
+        : "Whether anyone here has come for <i>you</i>, you do not yet know."}</p>`;
     show(`
       <div class="env-stage">
         <div class="envelope" id="env">
           <div class="letter">
-            <div class="letterhead">Ravenhollow Manor</div>
-            <p class="dear">${isHost ? "The Host's Ledger" : "Dear " + esc(name.replace(/^(Dr\.|Lady|Miss|Colonel|Mother) /, "")) + ","}</p>
+            <div class="letterhead">${esc(place)}</div>
+            <p class="dear">Dear ${esc(given)},</p>
             ${body}
-            <div class="btnrow" style="margin-top:18px"><button class="btn" id="enter" type="button">Enter the manor</button></div>
+            <div class="btnrow" style="margin-top:18px"><button class="btn" id="enter" type="button">Enter, then</button></div>
           </div>
           <div class="env-pocket"></div>
           <div class="env-flap"></div>
@@ -527,6 +531,12 @@
     return String(s).replace(/[&<>"']/g, (ch) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   }
+
+  // Let a world be chosen by URL (?world=id) — the default is Ravenhollow.
+  try {
+    const wanted = new URLSearchParams(location.search).get("world");
+    if (wanted && MV.WORLDS[wanted]) MV.useWorld(wanted);
+  } catch (e) { /* no query string, no matter */ }
 
   hero();
 })();

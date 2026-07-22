@@ -87,10 +87,26 @@
     }
   }
 
+  // Bespoke diary voice if the world defines one; else generated from traits.
+  function voice(agent) {
+    if (agent && VOICES[agent.name]) return VOICES[agent.name];
+    agent = agent || {};
+    const vices = agent.vices || [];
+    return {
+      name: agent.name,
+      header: `${_last(agent.name || "A guest")}'s account`,
+      opener: "I set down the day, that nothing of it be lost.",
+      hazy: vices.includes("drink") || vices.includes("morphine") || vices.includes("gluttony"),
+      kill: (e) => `I saw to ${_last(e.victim)} in the ${e.room}. It is done, and I will not dwell on it.`,
+      body: (e) => `I found ${_last(e.victim)} dead in the ${e.room}. Whose hand it was, I cannot say.`,
+      attacked: (e) => `${_last(e.culprit)} made an attempt on my life in the ${e.room}. I know them for an enemy now.`,
+    };
+  }
+
   function chronicleDay(name, memory, day, cast) {
-    const profile = VOICES[name];
-    const todays = memory.filter((e) => e.day === day);
     const me = cast.find((c) => c.name === name);
+    const profile = voice(me || { name });
+    const todays = memory.filter((e) => e.day === day);
     const lines = [];
     lines.push({ h: `${profile.header} — night of the ${ordinal(day)} day` });
     lines.push({ o: profile.opener });
@@ -153,5 +169,5 @@
     }
   }
 
-  MV.text = { VOICES, chronicleDay, chronicleDays, storyLines, ordinal };
+  MV.text = { VOICES, voice, chronicleDay, chronicleDays, storyLines, ordinal };
 })(typeof globalThis !== "undefined" ? globalThis : this);

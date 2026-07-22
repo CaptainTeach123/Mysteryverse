@@ -16,8 +16,10 @@ const docs = resolve(here, "..", "docs");
 const ctx = { console };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of ["engine.js", "content.js"]) vm.runInContext(readFileSync(resolve(docs, f), "utf8"), ctx);
+for (const f of ["config.js", "worlds/midnight.js", "engine.js", "content.js"]) vm.runInContext(readFileSync(resolve(docs, f), "utf8"), ctx);
 const MV = ctx.MV, last = MV.last;
+// node web/winnability.mjs [worldId]  — defaults to the built-in Ravenhollow.
+if (process.argv[2]) MV.useWorld(process.argv[2]);
 
 // A deterministic strategy that tries to win as the given guest.
 function strategyChoose(g, me, known) {

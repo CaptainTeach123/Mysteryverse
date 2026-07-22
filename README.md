@@ -59,6 +59,55 @@ and an authored branching narrative.
 The classic auto-simulation is still there too — "Watch the night unfold" runs
 the whole thing on its own, and you can read it back through any guest's eyes.
 
+### Define your own world (drop in a new cast + locale)
+
+The browser game is **data-driven**. A *world* is a locale plus a cast, declared
+as plain data; the engine, the Chronicler, the portraits, and the narration all
+build themselves from it. Anything you leave out — a guest's diary voice, a
+portrait's palette, a room's colours, their scene lines — is **generated from
+their traits**, so a world that is nothing but stats and targets still plays,
+reads, and looks like a whole game.
+
+- The built-in world and the worked example of the schema:
+  [`docs/config.js`](docs/config.js) (Ravenhollow).
+- A second world that ships **only data** — no bespoke art or voice, everything
+  generated: [`docs/worlds/midnight.js`](docs/worlds/midnight.js) (the Midnight
+  Express, a train). Open the page with `?world=midnight` to play it.
+
+A minimal world is just:
+
+```js
+MV.defineWorld({
+  id: "my-world",
+  locale: {
+    name: "The Something-or-Other",
+    start: "Great Hall",              // where everyone begins
+    weapons: { "Poker": 3, "Cord": 2 },
+    rooms: [
+      { name: "Great Hall", exits: ["Study"], description: "…" },
+      { name: "Study", exits: ["Great Hall"], weapon: "Poker",
+        providesPoison: true, lure: "an open safe", description: "…" },
+    ],
+    passages: { "Study": "Great Hall" },   // optional secret one-step links
+  },
+  cast: [
+    { name: "Ada Vane", title: "the Widow", target: "Boyd Kerr",
+      skills: { poison: 5, deduction: 4 },  // any of the seven; missing → 1
+      vices: ["pride", "paranoia"],
+      motive: "He buried her sister's will. She means to bury him.",
+      secret: "…", hook: "A widow with a chemist's steady hand." },
+    // … more agents. Give every agent a target; forms the murder web.
+  ],
+});
+```
+
+Drop that in a `<script>` after `config.js`, load the page with
+`?world=my-world`, and it just runs — a body a day, every guest deterministically
+winnable, portraits and prose generated for anyone you didn't hand-author.
+Optional per-agent `art` / `voice` / `narrative` and per-world `chronicler` prose
+override the generated defaults when you want the bespoke touch (see the schema
+comment at the top of `docs/config.js`).
+
 It is **pure static files** — no server, no build step, **no AI calls at
 run-time** — so it runs entirely in the visitor's browser and costs nothing to
 host, however many people play. Serve `docs/` on Cloudflare Pages, GitHub Pages,

@@ -47,7 +47,7 @@
   };
 
   function portrait(name, size) {
-    const f = FACES[name];
+    const f = FACES[name] || genFace(name);
     if (!f) return "";
     const s = size || 240;
     const el = [];
@@ -187,7 +187,7 @@
   };
 
   function room(name) {
-    const r = ROOM_ART[name] || ROOM_ART["Foyer"];
+    const r = ROOM_ART[name] || genRoomArt(name);
     const id = uid("r" + name);
     const el = [];
     el.push(`<svg viewBox="0 0 400 260" preserveAspectRatio="xMidYMid slice" role="img" aria-label="The ${name}">`);
@@ -286,6 +286,29 @@
         <rect x="386" y="170" width="28" height="40"/><rect x="180" y="230" width="18" height="26"/><rect x="600" y="230" width="18" height="26"/></g>
       <g stroke="#000" stroke-opacity="0.5" stroke-width="3">${(() => { let s = ""; for (let x = 20; x < 800; x += 40) s += `<line x1="${x}" y1="0" x2="${x - 12}" y2="30"/>`; return s; })()}</g>
     </svg>`;
+  }
+
+  // ---- generated fallbacks for dropped-in casts / locales --------------
+  const HAIRS = ["#2e2622", "#8f897c", "#9c4a2a", "#b7b0a2", "#5a3a24", "#20232a"];
+  const SKINS = ["#e6c6a4", "#d7a07a", "#f0d6bd", "#c9946a", "#e2cbb2"];
+  const ACCENTS = ["#2f8f83", "#e6a23c", "#c14232", "#b8557f", "#4f8fae", "#7a9c3a"];
+  const BGS = ["#20464a", "#5a231c", "#48233f", "#1f2a3a", "#3a2c22", "#2c3a34", "#42372c"];
+  const HAIRSTYLES = ["crop", "slick", "wave", "sweptGrey", "updo", "widowsPeak"];
+  function hnum(s) { let h = 0; for (let i = 0; i < (s || "").length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff; return h; }
+  function genFace(name) {
+    const h = hnum(name);
+    const bg = BGS[h % BGS.length];
+    return {
+      bg, bg2: shade(bg, 0.7), skin: SKINS[(h >> 3) % SKINS.length],
+      hair: HAIRS[(h >> 5) % HAIRS.length], coat: shade(bg, 0.55),
+      trim: "#e7dcc4", accent: ACCENTS[(h >> 7) % ACCENTS.length],
+      hairStyle: HAIRSTYLES[(h >> 9) % HAIRSTYLES.length],
+    };
+  }
+  function genRoomArt(name) {
+    const h = hnum(name);
+    const wall = BGS[(h >> 2) % BGS.length];
+    return { wall, floor: shade(wall, 0.5), accent: ACCENTS[(h >> 4) % ACCENTS.length] };
   }
 
   // ---- small utils ------------------------------------------------------

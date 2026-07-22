@@ -99,6 +99,29 @@
     },
   };
 
+  // Bespoke voice if the world provides one; otherwise a serviceable voice
+  // generated from the agent's own traits, so a dropped-in guest still speaks.
+  function narr(agent) {
+    return NARR[agent.name] || genNarr(agent);
+  }
+  function genNarr(agent) {
+    const markL = last(agent.target);
+    return {
+      hunt: { title: `Seek out ${markL}`, mono: `${agent.motive} Today I go looking for them.` },
+      prepare: { title: "Ready yourself", mono: "Better to be prepared before the moment comes. Let me see to that, quietly." },
+      lielow: { title: "Keep to the shadows", mono: "Let the others show their hands first. I can wait; waiting is a skill of mine." },
+      strike: (v) => `It has to be done. ${last(v)} will trouble no one after tonight.`,
+      lull: (v) => `I put ${last(v)} at their ease and draw them a little closer than is wise for them.`,
+      deflect: (v) => `I turn ${last(v)}'s suspicion gently aside and give them nothing at all to hold.`,
+      converse: (v) => `I draw ${last(v)} into talk, listening past the words for the one thing that matters.`,
+      withdraw: () => "I make my excuses and slip away, unhurried.",
+      solo: () => "Alone, I gather myself, and listen to the old house breathe.",
+    };
+  }
+  function hook(agent) {
+    return agent.hook || `A ${agent.title.replace(/^the /, "")} with reasons of their own.`;
+  }
+
   // Relationship AS THE PLAYER KNOWS IT. Your mark you always know. A hunter
   // reads as a hunter only once you've discovered they mean you harm — until
   // then they are just another guest, which is exactly how the trap is sprung.
@@ -124,7 +147,8 @@
   // before they arrived; the rest must find out the hard way.
   function initialKnownHunters(game, playerName) {
     const known = new Set();
-    if (playerName === "Cornelius Blackwood") {
+    const me = game.byName[playerName];
+    if (me && me.knowsHunters) {
       for (const c of game.cast) if (c.target === playerName) known.add(c.name);
     }
     return known;
@@ -132,7 +156,7 @@
 
   // ---- the three day-intents -------------------------------------------
   function dayIntents(game, player) {
-    const n = NARR[player.name];
+    const n = narr(player);
     const markAlive = game.byName[player.target].alive && !game.byName[player.target].caught;
     const hunt = markAlive
       ? { key: "hunt", title: n.hunt.title, mono: n.hunt.mono, goal: "mark" }
@@ -155,14 +179,14 @@
     if (!subject) {
       if (here.length) lines.push(`Only ${orList(here.map((c) => last(c.name)))} drift at the edges of the room, intent on their own business.`);
       else lines.push("The room is empty, and for a moment the storm is the only company you have.");
-      lines.push(NARR[player.name].solo());
+      lines.push(narr(player).solo());
       return lines;
     }
     const rel = REL(game, player, subject, known);
     const others = here.filter((c) => c !== subject);
     lines.push(`And there — ${subject.name}, ${subject.title}, ${manner(subject)}.` +
       (others.length ? ` ${cap(orList(others.map((c) => last(c.name))))} ${others.length > 1 ? "are" : "is"} here too, which changes what a careful person can risk.` : " You are, for the moment, alone together."));
-    if (rel === "mark") lines.push(NARR[player.name].readMark ? NARR[player.name].readMark(subject) : `Your mark. Everything you came to this house to do ends with them.`);
+    if (rel === "mark") lines.push(narr(player).readMark ? narr(player).readMark(subject) : `Your mark. Everything you came to this house to do ends with them.`);
     else if (rel === "hunter") lines.push(`This one hunts you — you have seen it in how ${last(subject.name)} watches the doors. Careful now.`);
     else lines.push(`No quarrel between you and ${last(subject.name)} — not yet. But everyone here is worth reading.`);
     return lines;
@@ -177,11 +201,11 @@
     "Cornelius Blackwood": "watching you the way a house watches a thief",
     "Mother Genevieve": "hands folded, lips barely moving in prayer",
   };
-  const manner = (c) => MANNER[c.name] || "waiting";
+  const manner = (c) => MANNER[c.name] || "waiting, and giving little away";
 
   // ---- the three in-scene actions --------------------------------------
   function sceneOptions(game, player, subject, known) {
-    const n = NARR[player.name];
+    const n = narr(player);
     const room = game.mansion.rooms[player.room];
     const canPoison = room.providesPoison && MV.helpers.skill(player, "poison") >= 3;
     const canStrike = player.carrying !== null || canPoison;
@@ -307,7 +331,7 @@
     "A quiet day, and quite deliberately so. Let the bolder fools thin their own number.",
   ];
   function lieLow(player, day) {
-    const n = NARR[player.name];
+    const n = narr(player);
     const beats = [n.withdraw(), n.solo(), LIELOW[day % LIELOW.length]];
     return beats[day % beats.length];
   }
@@ -332,5 +356,5 @@
   function orList(a) { return a.length <= 1 ? (a[0] || "") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; }
   function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 
-  MV.content = { NARR, HOOKS, initialKnownHunters, dayIntents, sceneProse, sceneOptions, deathDispatch, deathTruth, vignette, outcome, lieLow, rel: REL };
+  MV.content = { NARR, HOOKS, hook, narr, initialKnownHunters, dayIntents, sceneProse, sceneOptions, deathDispatch, deathTruth, vignette, outcome, lieLow, rel: REL };
 })(typeof globalThis !== "undefined" ? globalThis : this);

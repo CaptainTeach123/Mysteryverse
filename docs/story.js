@@ -68,10 +68,17 @@
   function chroniclerMorning(game) {
     const alive = game.living().length;
     const nth = ORD[game.day] || `${game.day}th`;
+    const place = (MV.world.locale && MV.world.locale.name) || "the house";
+    // A world may supply its own prose pools; otherwise the defaults are used
+    // and the locale's name is dropped in wherever Ravenhollow would stand.
+    const O = (MV.world.locale && MV.world.locale.chronicler) || {};
+    const openers = O.morningOpen || MORNING_OPEN;
+    const storm = (O.storm && O.storm[stormStage(game)]) || STORM[stormStage(game)];
+    const house = O.house || HOUSE;
     const parts = [];
-    parts.push(pick(MORNING_OPEN, game.day).replace("{nth}", nth));
-    parts.push(pick(STORM[stormStage(game)], game.day));
-    parts.push(pick(HOUSE, game.day + 1));
+    parts.push(pick(openers, game.day).replace("{nth}", nth).replace(/Ravenhollow/g, place));
+    parts.push(pick(storm, game.day));
+    parts.push(pick(house, game.day + 1));
     if (game.day === 1) {
       parts.push("Seven guests had crossed the bridge before the water rose and took it. Seven came down to breakfast that first cold morning — and every one of them was lying about why they had come.");
     } else {
@@ -82,13 +89,14 @@
         parts.push(`${alive} of them still came down to breakfast, and sat a little further apart than the day before.`);
       }
     }
-    parts.push(pick(FORESHADOW, game.day));
+    parts.push(pick(O.foreshadow || FORESHADOW, game.day));
     return parts.join(" ");
   }
 
   function chroniclerClose(game) {
     const alive = game.living().length;
-    if (alive <= 1) return "And then there was one. The storm broke over an empty house, and Ravenhollow kept its counsel, as great houses do.";
+    const place = (MV.world.locale && MV.world.locale.name) || "the house";
+    if (alive <= 1) return `And then there was one. The storm broke over an empty house, and ${place} kept its counsel, as great houses do.`;
     return `Night came down black and total. ${alive} still drew breath under that roof — and not one of them believed they would be the one to fall.`;
   }
 
@@ -148,7 +156,7 @@
   // Compose one guest's night from the day they actually had.
   function reflect(agent, game, day, beats, deathLines) {
     const m = mood(agent, game, day);
-    const header = (MV.text.VOICES[agent.name] || {}).header || `${last(agent.name)}'s account`;
+    const header = MV.text.voice(agent).header || `${last(agent.name)}'s account`;
     const lines = [{ dh: `${header} — night of the ${ORD[day] || day + "th"} day` }];
     lines.push({ op: pick(OPEN[m.dom], day) });
     (beats || []).forEach((b, i) => {

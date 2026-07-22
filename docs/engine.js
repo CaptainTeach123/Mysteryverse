@@ -10,11 +10,7 @@
   "use strict";
 
   // ---- constants --------------------------------------------------------
-  const WEAPON_POWER = {
-    "Revolver": 4, "Ceremonial Dagger": 3, "Carving Knife": 3,
-    "Candlestick": 2, "Garden Shears": 2, "Length of Rope": 2,
-    "Silk Cord": 2, "Letter Opener": 1,
-  };
+  const weaponPower = (name) => (MV.world.locale.weapons[name] || 1);
   const EXPOSE_THRESHOLD = 6;
   const TURNS_PER_DAY = 5;
   const MAX_DAYS = 12;
@@ -35,70 +31,13 @@
     return parts[parts.length - 1];
   }
 
-  // ---- the seven guests -------------------------------------------------
+  // ---- the cast, built from the active world ----------------------------
   function buildCast() {
-    const mk = (o) => Object.assign({
-      room: "Foyer", alive: true, caught: false, suspicion: 0,
+    return MV.world.cast.map((c) => Object.assign({
+      room: MV.world.locale.start, alive: true, caught: false, suspicion: 0,
       carrying: null, kills: [], exposedSecret: false,
-    }, o);
-    return [
-      mk({
-        name: "Dr. Adrian Vell", title: "the Physician",
-        skills: { stealth: 3, combat: 2, poison: 5, deduction: 4, persuasion: 3, guile: 2, composure: 4 },
-        vices: ["pride", "morphine"],
-        motive: "A patient he let die had been bleeding him dry. The blackmail dies when the blackmailer does.",
-        target: "Cornelius Blackwood",
-        secret: "The 'lost patient' was no accident — it was practice.",
-      }),
-      mk({
-        name: "Miss Isolde Frayne", title: "the Ingenue",
-        skills: { stealth: 4, combat: 2, poison: 3, deduction: 3, persuasion: 5, guile: 4, composure: 3 },
-        vices: ["envy", "vanity"],
-        motive: "Her sister was ruined and discarded by Lady Ashford. A debt of shame paid in kind.",
-        target: "Lady Bianca Ashford",
-        secret: "The demure accent is invented; she grew up a pickpocket.",
-      }),
-      mk({
-        name: "Colonel Roderick Mace", title: "the Soldier",
-        skills: { stealth: 2, combat: 5, poison: 1, deduction: 3, persuasion: 2, guile: 2, composure: 4 },
-        vices: ["wrath", "drink"],
-        motive: "A witness to what he ordered on the ridge is in this house. Witnesses can be retired.",
-        target: "Silas Crane",
-        secret: "Crane isn't the only witness — but he's the one still talking.",
-      }),
-      mk({
-        name: "Silas Crane", title: "the Confidence Man",
-        skills: { stealth: 3, combat: 2, poison: 2, deduction: 3, persuasion: 4, guile: 5, composure: 2 },
-        vices: ["greed", "cowardice"],
-        motive: "He owes the Colonel a debt no ledger can settle. Better the creditor never leaves the manor.",
-        target: "Colonel Roderick Mace",
-        secret: "He already sold everyone's secrets to the host — once.",
-      }),
-      mk({
-        name: "Lady Bianca Ashford", title: "the Heiress",
-        skills: { stealth: 2, combat: 2, poison: 3, deduction: 4, persuasion: 5, guile: 3, composure: 4 },
-        vices: ["arrogance", "gluttony"],
-        motive: "Only Dr. Vell stands between her and the whole Ashford estate. Physicians, after all, sign the certificates.",
-        target: "Dr. Adrian Vell",
-        secret: "She has poisoned before, and signed nothing.",
-      }),
-      mk({
-        name: "Cornelius Blackwood", title: "the Host",
-        skills: { stealth: 4, combat: 3, poison: 3, deduction: 5, persuasion: 4, guile: 4, composure: 5 },
-        vices: ["paranoia", "lust"],
-        motive: "He gathered every person who ever wronged him under one roof. He does not intend for all of them to leave.",
-        target: "Miss Isolde Frayne",
-        secret: "He knows the manor's hidden passages — and used them to read every guest's mail before they arrived.",
-      }),
-      mk({
-        name: "Mother Genevieve", title: "the Occultist",
-        skills: { stealth: 3, combat: 2, poison: 4, deduction: 4, persuasion: 3, guile: 3, composure: 5 },
-        vices: ["fanaticism", "secrecy"],
-        motive: "She has read the Colonel's soul and found it past saving. Some mercies can only be delivered with hemlock.",
-        target: "Colonel Roderick Mace",
-        secret: "Her 'visions' are cover — she has followed Mace for years.",
-      }),
-    ];
+      knowsPassages: !!c.knowsPassages, knowsHunters: !!c.knowsHunters,
+    }, JSON.parse(JSON.stringify(c))));   // deep-clone the data so games don't share it
   }
 
   const skill = (c, n) => (c.skills[n] === undefined ? 1 : c.skills[n]);
@@ -106,40 +45,23 @@
   const offense = (c) => Math.max(skill(c, "combat"), skill(c, "poison")) + skill(c, "stealth");
   const defense = (c) => skill(c, "combat") + skill(c, "deduction");
 
-  // ---- the manor --------------------------------------------------------
-  const ROOM_DEFS = [
-    ["Foyer", "Black-and-white marble stretches away to a staircase that climbs into shadow. A grandfather clock stands dead against the wall, its hands stopped at some forgotten hour, and the guests' coats still drip by the door where the storm followed them in.", ["Grand Hall", "Library"], null, false, null],
-    ["Grand Hall", "A vaulting hall hung with antlers and the portraits of Blackwoods long dead, their painted eyes following the living from every wall. The great staircase sweeps up into a darkness the lamps never quite reach, and the rain is a constant hush against the high windows.", ["Foyer", "Dining Room", "Ballroom", "Landing"], null, false, null],
-    ["Library", "Floor-to-ceiling cases of cracked leather and gold leaf, ladders on brass rails, the air thick with vellum and cold pipe-smoke. A single reading-lamp throws long shadows between the stacks, and at the black windows the rain seems to read along over your shoulder.", ["Foyer", "Study", "Conservatory"], "Letter Opener", false, "a shelf of first editions worth a small fortune"],
-    ["Study", "The host's private study: a broad leather-topped desk, a hearth gone cold, a cut-glass decanter of something amber catching what little light there is. Not all the drawers lock, and the room holds the breath-held stillness of a place accustomed to keeping secrets.", ["Library", "Landing"], "Revolver", true, "an unlocked drawer of bearer bonds"],
-    ["Conservatory", "Glass on every side, streaming and blind with rain, and beyond it nothing but the drowned dark of the garden. Overgrown ferns crowd the tiled paths like listeners leaning in, and the whole room breathes wet earth and green decay.", ["Library", "Garden"], "Garden Shears", true, null],
-    ["Dining Room", "A long table set for a dinner that thins by the day — twelve chairs, seven places, the candles guttering in a draught no one can find. Silver gleams, the port decanter sweats, and overhead the chandelier ticks faintly as the old house settles around it.", ["Grand Hall", "Kitchen", "Ballroom"], "Candlestick", true, "a decanter of very good port"],
-    ["Kitchen", "Copper pans hang in gleaming ranks above a range still warm from a supper nobody finished. Cleavers and carving knives wait in their block, catching the light, and a low door in the corner breathes cold up from the cellar below.", ["Dining Room", "Cellar"], "Carving Knife", true, null],
-    ["Cellar", "Stone and cobweb and racks of pre-war bottles furred grey with dust, all of it lit by one bare bulb that flickers whenever the storm leans on the house. Sound comes strangely down here — close at your ear one moment, swallowed whole the next.", ["Kitchen"], "Length of Rope", false, "a rack of pre-war vintages"],
-    ["Ballroom", "A parquet floor wide as a courtyard, a chandelier shrouded in dust-sheets, and a long wall of speckled mirrors that doubles every shadow that crosses it. No music has sounded here in years, and the silence has a weight you can feel in your chest.", ["Grand Hall", "Dining Room", "Gallery"], null, false, "your own reflection, doubled and doubled again in the mirrors"],
-    ["Gallery", "Ancestral portraits in heavy gilt frames march the length of the room, and among them hangs one frame gone empty, its canvas cut clean out. A display case of Blackwood jewels glitters coldly under the lamps, and the old parquet remembers every footstep laid on it.", ["Ballroom", "Landing"], "Ceremonial Dagger", false, "a display case of Blackwood jewels"],
-    ["Landing", "A long gallery of shut doors above the hall, the storm loud against a tall arched window at its end. From here one can see who comes and goes below in the lamplight — and be seen in turn, by anyone careless enough to be caught in it.", ["Grand Hall", "Study", "Gallery", "Master Bedroom"], null, false, null],
-    ["Master Bedroom", "The host's own room, dominated by a great curtained four-poster and a wardrobe that locks with an iron key. A window gives onto the drowned garden, and a jewellery box sits open and careless upon the dresser, as though set there to test the guests.", ["Landing"], "Silk Cord", false, "a jewellery box left open on the dresser"],
-    ["Garden", "Sodden lawns dissolve into rain and dark, a broken sundial keeping no hour at all. Where the bridge once crossed the swollen race there is now only black water, loud in the night, and the memory of a way out that the storm has cancelled.", ["Conservatory"], null, false, "the gate to a freedom the storm has cancelled"],
-  ];
-  const SECRET_PASSAGES = {
-    "Study": "Master Bedroom", "Master Bedroom": "Study",
-    "Library": "Gallery", "Gallery": "Library",
-  };
-
+  // ---- the locale, built from the active world --------------------------
   function buildMansion() {
+    const L = MV.world.locale;
+    const passages = L.passages || {};
     const rooms = {};
-    for (const [name, description, exits, weapon, providesPoison, lure] of ROOM_DEFS) {
-      rooms[name] = {
-        name, description, exits: exits.slice(), weapon,
-        providesPoison, lure, occupants: [], bodies: [],
+    for (const r of L.rooms) {
+      rooms[r.name] = {
+        name: r.name, description: r.description, exits: r.exits.slice(),
+        weapon: r.weapon || null, providesPoison: !!r.providesPoison,
+        lure: r.lure || null, occupants: [], bodies: [],
       };
     }
     return {
       rooms,
       neighbors(name, knows) {
         const ex = rooms[name].exits.slice();
-        if (knows && SECRET_PASSAGES[name]) ex.push(SECRET_PASSAGES[name]);
+        if (knows && passages[name]) ex.push(passages[name]);
         return ex;
       },
       bfsDistance(start, goal, knows) {
@@ -197,7 +119,7 @@
       for (const c of this.cast) { this.memory[c.name] = []; this._discovered[c.name] = new Set(); }
       this.day = 0;
       this.murderToday = null;
-      for (const c of this.cast) this.mansion.rooms["Foyer"].occupants.push(c.name);
+      for (const c of this.cast) this.mansion.rooms[MV.world.locale.start].occupants.push(c.name);
     }
 
     living() { return this.cast.filter((c) => c.alive && !c.caught); }
@@ -208,7 +130,7 @@
         .filter((c) => c.alive && !c.caught && c.name !== exclude);
     }
 
-    knowsPassages(actor) { return actor.name === "Cornelius Blackwood"; }
+    knowsPassages(actor) { return !!actor.knowsPassages; }
 
     methodsAvailable(actor, room) {
       const m = [];
@@ -243,7 +165,7 @@
 
     attackMargin(attacker, target, method, weapon) {
       let off = offense(attacker);
-      if (method === "violence" && weapon) off += (WEAPON_POWER[weapon] || 1);
+      if (method === "violence" && weapon) off += weaponPower(weapon);
       else if (method === "poison") off += Math.floor(skill(attacker, "poison") / 2);
       let def = defense(target);
       const room = this.mansion.rooms[target.room];
@@ -426,6 +348,7 @@
       const protect = new Set([this.reservedMark, this.playerName].filter(Boolean));
       let best = null, bestScore = -1e9;
       for (const A of living) {
+        if (A.name === this.playerName) continue;  // never pin a forced kill on the player
         for (const B of living) {
           if (A === B) continue;
           if (protect.has(B.name)) continue;    // spare the player and their mark
