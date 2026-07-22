@@ -84,28 +84,11 @@
 
   // The collection's cover text — edit freely.
   const COLLECTION = { title: "The Mysteries", subtitle: "A cabinet of closed-circle murders" };
-  const FLOURISH = `<svg viewBox="0 0 200 24" width="176" height="21" aria-hidden="true"><g fill="none" stroke="#c9a24a" stroke-width="1.5"><path d="M12 12 C 52 2, 72 2, 94 12"/><path d="M188 12 C 148 22, 128 22, 106 12"/></g><circle cx="100" cy="12" r="3.2" fill="#c9a24a"/></svg>`;
   const COVERS = ["#7a2018", "#2f7f73", "#3f6f9a", "#6a4a8f", "#8a6a2a", "#5a7a3a"];
 
   // =====================================================================
-  //  LANDING — the splash, then the cabinet of cases
+  //  LANDING — the cabinet of cases, set in the bar (the home page)
   // =====================================================================
-  function splash() {
-    setBar(false);
-    document.body.classList.add("on-splash");
-    show(`
-      <div class="splash">
-        <div class="splash-art">${A.moonScene()}</div>
-        <div class="splash-copy">
-          <h1 class="script">${esc(COLLECTION.title)}</h1>
-          <div class="flourish">${FLOURISH}</div>
-          <p class="sub">${esc(COLLECTION.subtitle)}</p>
-          <button class="enterbtn" id="enter" type="button">Enter</button>
-        </div>
-      </div>`);
-    on("enter", cases);
-  }
-
   function cases() {
     document.body.classList.remove("on-splash");
     setBar(true);
@@ -124,12 +107,10 @@
       </a>`;
     }).join("");
     show(`
-      <div class="section-head"><h2>${esc(COLLECTION.title)}</h2>
-        <button class="iconbtn" id="back" type="button">← Cover</button></div>
+      <div class="section-head"><h2>${esc(COLLECTION.title)}</h2></div>
       <p class="intro" style="max-width:64ch;margin-top:-6px">${esc(COLLECTION.subtitle)}. Each is its own case, on
         its own page — pick one, and find the killer before the last dawn.</p>
       <div class="cases">${cards}</div>`);
-    on("back", splash);
   }
 
   // =====================================================================
@@ -414,7 +395,7 @@
   }
 
   // Route: ?world=id (or a window.MV_BOOT set by a per-mystery page) opens that
-  // case on its own page/URL; otherwise the landing splash.
+  // case on its own page/URL; otherwise the bar-room cabinet of cases.
   let booted = false;
   try {
     const wanted = window.MV_BOOT || new URLSearchParams(location.search).get("world");
@@ -428,5 +409,5 @@
       hero(); booted = true;
     }
   } catch (e) { /* file:// or no query */ }
-  if (!booted) splash();
+  if (!booted) cases();
 })();
