@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mysteryverse"
+version = "0.1.0"
+description = "A multi-agent game of intrigue at Ravenhollow Manor: seven schemers, one storm-bound estate, a body a day."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["game", "simulation", "multi-agent", "mystery", "interactive-fiction"]
+
+[project.scripts]
+mysteryverse = "mysteryverse.cli:main"
+
+[tool.setuptools]
+packages = ["mysteryverse"]
