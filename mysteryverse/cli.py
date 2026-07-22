@@ -84,12 +84,11 @@ def _play(args) -> int:
         print(render_day_entry(who, game.memory[who], day, game.cast))
         input("\n  (press enter for the next day) ")
 
-    chooser = InteractiveChooser()
     game = Game(seed=args.seed, max_days=args.days, nightfall_hook=nightfall)
     # Only the chosen guest is played by hand; everyone else acts on their own.
     from .choosers import AutoChooser
-    auto = AutoChooser(game.rng)
-    manual = chooser
+    auto = AutoChooser()
+    manual = InteractiveChooser()
 
     class _Router:
         def choose(self, g, actor, options):

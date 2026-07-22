@@ -7,58 +7,60 @@ same simulation double as a playable adventure.
 
 from __future__ import annotations
 
-import random
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from .options import Option
 from .characters import Character
 
 
 class AutoChooser:
-    """The guest decides for themselves, in character.
+    """The guest decides for themselves, in character -- deterministically.
 
     Scores every option and takes the best, with vice and nerve bending the
-    numbers: the wrathful lunge on poor odds, cowards need a sure thing, the
-    greedy wander off after treasure.
-    """
+    numbers: the wrathful lunge on hopeless odds (and botch), cowards need a
+    sure thing, the greedy drift after treasure. There is no randomness -- the
+    same situation always yields the same choice, which is what makes the night
+    a fixed, replayable adventure.
 
-    def __init__(self, rng: random.Random) -> None:
-        self.rng = rng
+    Ties are settled by the order options were generated (strikes first, then
+    arming, then moves, then waiting), so the result is always well-defined.
+    """
 
     def choose(self, game, actor: Character, options: List[Option]) -> Option:
         others = game._in_room(actor.room, exclude=actor.name)
         threat = game._pressing_threat(actor, others)
-        needed = game._strike_confidence_needed(actor)
+        needed = game._needed_margin(actor)
         reckless = any(actor.has_vice(v) for v in game.RECKLESS_VICES)
         has_means = any(o.kind == "strike" for o in options)
         target = game.by_name.get(actor.target)
         target_alive = target is not None and target.alive
         knows = game._knows_passages(actor)
 
-        best, best_score = None, -1e18
+        best, best_score = options[0], -1e18
         for opt in options:
             score = self._score(game, actor, opt, threat=threat, needed=needed,
                                  reckless=reckless, has_means=has_means,
                                  target=target, target_alive=target_alive,
                                  knows=knows)
-            score += self.rng.random() * 3  # break ties unpredictably
-            if score > best_score:
+            if score > best_score:            # strict > keeps the first on ties
                 best, best_score = opt, score
         return best
 
     def _score(self, game, actor, opt, *, threat, needed, reckless,
                has_means, target, target_alive, knows) -> float:
         if opt.kind == "strike":
-            chance = opt.success_chance or 0.0
-            base = chance * 100
+            margin = opt.margin if opt.margin is not None else -99
+            base = margin * 12
             bonus = 200 if opt.is_target else 0
             if opt.witnessed:
-                if reckless and chance >= needed + 0.1:
+                # Only the reckless kill in front of an audience -- and it costs
+                # them dearly in suspicion.
+                if reckless and margin >= needed:
                     return 300 + base + bonus - opt.suspicion_risk * 12
-                return -1e9  # nobody sane kills in front of an audience
-            if chance >= needed:
+                return -1e9
+            if margin >= needed:
                 return 1000 + base + bonus - opt.suspicion_risk * 3
-            return 150 + base + bonus  # tempted, but the odds give them pause
+            return 120 + base + bonus  # tempted, but the odds stay their hand
 
         if opt.kind == "arm":
             return 360 if not has_means else 110
@@ -69,12 +71,8 @@ class AutoChooser:
                                     target_alive=target_alive, knows=knows)
 
         if opt.kind == "wait":
-            # Lying in wait is worth something only if the target is already here
-            # and privacy might yet come; otherwise it's the last resort.
             here = game._in_room(actor.room, exclude=actor.name)
-            if target in here:
-                return 90
-            return 30
+            return 90 if target in here else 30
         return 0
 
     def _score_move(self, game, actor, opt, *, threat, has_means, target,
@@ -83,7 +81,6 @@ class AutoChooser:
         score = 140.0
 
         if not has_means:
-            # First order of business: get a means of murder in hand.
             nm = game._distance_to_means(dest, actor, knows=knows)
             if nm is not None:
                 score += 130 - 35 * nm
@@ -93,17 +90,16 @@ class AutoChooser:
                 score += 130 - 35 * dt
 
         if threat is not None:
-            # Put distance between themselves and the hunter; crowds are safer.
             away = game.mansion.bfs_distance(dest, threat.room, knows_passages=knows)
             score += 60 * (away or 0)
             score += 25 * len(game._in_room(dest))
             if opt.kind == "passage":
                 score += 120  # the host vanishing through a wall
 
+        # A steady, deterministic pull toward temptation for the distractible.
         if any(actor.has_vice(v) for v in game.DISTRACTIBLE_VICES):
-            lure_here = game.mansion.room(dest).lure is not None
-            if lure_here:
-                score += self.rng.random() * 90
+            if game.mansion.room(dest).lure is not None:
+                score += 30
         return score
 
 

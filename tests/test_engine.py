@@ -49,6 +49,27 @@ class TestCoreInvariants(unittest.TestCase):
                 [(d.day, d.victim, d.culprit) for d in b.deaths],
                 f"seed {seed} not reproducible")
 
+    def test_fully_predetermined_without_a_seed(self):
+        """The canonical night (no seed) is a fixed gamebook: identical deaths,
+        winner, and full event log every single time."""
+        runs = [Game().run() for _ in range(5)]
+        first = runs[0]
+        for r in runs[1:]:
+            self.assertEqual([vars(d) for d in r.deaths],
+                             [vars(d) for d in first.deaths])
+            self.assertEqual(r.winner, first.winner)
+            self.assertEqual(len(r.events), len(first.events))
+
+    def test_a_strike_outcome_is_pure_state(self):
+        """The same attempt in the same state always resolves the same way --
+        the margin, not a die, decides it."""
+        game = Game(seed=0)
+        vell = game.by_name["Dr. Adrian Vell"]
+        bianca = game.by_name["Lady Bianca Ashford"]
+        m1 = game._attack_margin(vell, bianca, "poison", None)
+        m2 = game._attack_margin(vell, bianca, "poison", None)
+        self.assertEqual(m1, m2)
+
     def test_a_kill_is_only_ever_by_someone_present(self):
         for seed in SEEDS:
             result = Game(seed=seed).run()
@@ -95,8 +116,10 @@ class TestOptions(unittest.TestCase):
         strikes = [o for o in game._options(vell) if o.kind == "strike"]
         self.assertTrue(strikes)
         for o in strikes:
-            self.assertIsNotNone(o.success_chance)
-            self.assertTrue(0.0 <= o.success_chance <= 1.0)
+            self.assertIsNotNone(o.margin)
+            # will_succeed is the pre-determined outcome: it must agree with the
+            # margin exactly (positive margin -> the strike lands).
+            self.assertEqual(o.will_succeed, o.margin >= 1)
             self.assertFalse(o.witnessed)  # they are alone
 
 

@@ -33,7 +33,10 @@ class Option:
     dest: Optional[str] = None
 
     # decision inputs, surfaced for the CYOA menu -----------------------
-    success_chance: Optional[float] = None
+    # The outcome is PRE-DETERMINED: a strike with a positive margin always
+    # succeeds, one at zero or below always fails. No dice at play-time.
+    margin: Optional[int] = None
+    will_succeed: bool = False
     suspicion_risk: int = 0
     witnessed: bool = False
     is_target: bool = False

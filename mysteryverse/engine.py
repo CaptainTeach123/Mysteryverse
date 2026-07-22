@@ -47,15 +47,18 @@ EXPOSE_THRESHOLD = 6      # suspicion at which the household may unmask a guest
 TURNS_PER_DAY = 5         # maneuvering turns before nightfall
 MAX_DAYS = 12
 
-BASE_STRIKE_CONFIDENCE = 0.45
-VICE_CONFIDENCE = {
-    "wrath": -0.18,
-    "fanaticism": -0.12,
-    "pride": -0.08,
-    "arrogance": -0.08,
-    "cowardice": +0.28,
-    "greed": +0.06,
-    "paranoia": +0.10,
+# The margin (attacker strength minus target strength) a guest insists on
+# before they will risk a strike. Vice bends nerve up or down. A margin of 1+
+# means the strike is pre-determined to succeed; 0 or less, to fail.
+BASE_NEEDED_MARGIN = 1
+VICE_MARGIN = {
+    "wrath": -3,        # will lunge at hopeless odds (and botch)
+    "fanaticism": -2,
+    "pride": -1,
+    "arrogance": -1,
+    "cowardice": +3,    # needs a sure thing
+    "greed": +1,
+    "paranoia": +1,
 }
 
 
@@ -101,7 +104,6 @@ class Game:
                  turns_per_day: int = TURNS_PER_DAY,
                  chooser=None,
                  nightfall_hook=None) -> None:
-        self.rng = random.Random(seed)
         self.max_days = max_days
         self.turns_per_day = turns_per_day
         # Called as nightfall_hook(game, day) after each day resolves -- the CLI
@@ -110,7 +112,15 @@ class Game:
         self.mansion = Mansion()
         self.cast: List[Character] = build_cast()
         self.by_name: Dict[str, Character] = {c.name: c for c in self.cast}
-        self.chooser = chooser or AutoChooser(self.rng)
+        self.chooser = chooser or AutoChooser()
+
+        # The turn order is fixed for the whole night (like initiative), so the
+        # book plays out the same way every time. A seed only permutes that
+        # order once, at setup -- it never touches a single outcome, which is
+        # decided purely by the guests' choices and skills.
+        self.initiative: List[str] = [c.name for c in self.cast]
+        if seed is not None:
+            random.Random(seed).shuffle(self.initiative)
 
         self.events: List[dict] = []
         self.deaths: List[Death] = []
@@ -170,9 +180,15 @@ class Game:
                 return h
         return None
 
-    # -- combat math ------------------------------------------------------
-    def _success_chance(self, attacker: Character, target: Character,
-                        method: str, weapon: str | None) -> float:
+    # -- combat math (fully deterministic) --------------------------------
+    def _attack_margin(self, attacker: Character, target: Character,
+                       method: str, weapon: str | None) -> int:
+        """By how much the attacker out-matches the target, as an integer.
+
+        Positive -> the strike lands. Zero or negative -> it fails. This is a
+        pure function of the situation: the same attempt in the same state
+        always resolves the same way. No randomness at play-time.
+        """
         offense = attacker.offense()
         if method == "violence" and weapon:
             offense += WEAPON_POWER.get(weapon, 1)
@@ -186,14 +202,29 @@ class Game:
             defense -= 2
         if attacker.skill("stealth") >= 4 and target.suspicion == 0:
             offense += 1
+        return offense - defense
 
-        return _clamp(0.5 + 0.09 * (offense - defense), 0.05, 0.95)
+    @staticmethod
+    def _margin_label(margin: int) -> str:
+        if margin >= 4:
+            return "overwhelming -- a certain kill"
+        if margin >= 2:
+            return "strong -- the blow will land"
+        if margin == 1:
+            return "slight -- it will just succeed"
+        if margin == 0:
+            return "even -- they will get the better of you"
+        return "against you -- the attempt will fail"
 
-    def _strike_confidence_needed(self, attacker: Character) -> float:
-        need = BASE_STRIKE_CONFIDENCE
+    def _needed_margin(self, attacker: Character) -> int:
+        """The margin a guest insists on before they'll risk a strike.
+
+        Vice bends nerve: the wrathful will lunge at hopeless odds (and botch,
+        deterministically), cowards demand a sure thing."""
+        need = BASE_NEEDED_MARGIN
         for v in attacker.vices:
-            need += VICE_CONFIDENCE.get(v, 0.0)
-        return _clamp(need, 0.1, 0.9)
+            need += VICE_MARGIN.get(v, 0)
+        return max(-3, min(5, need))
 
     # -- options (the choose-your-own-adventure surface) ------------------
     def _options(self, actor: Character) -> List[Option]:
@@ -205,23 +236,24 @@ class Game:
         if self.murder_today is None:
             for method, weapon in self._methods_available(actor, room):
                 for victim in others:
-                    chance = self._success_chance(actor, victim, method, weapon)
+                    margin = self._attack_margin(actor, victim, method, weapon)
                     witnesses = [o for o in others if o is not victim]
                     risk = (5 if witnesses else 0) + (3 if method == "violence"
                                                       else 1)
                     with_what = (f"the {weapon}" if method == "violence"
                                  else "a doctored glass")
                     seen = ("unseen" if not witnesses else
-                            f"{len(witnesses)} present -- near-certain exposure")
+                            f"{len(witnesses)} watching -- exposure is certain")
                     mark = " (your mark)" if victim.name == actor.target else ""
                     opts.append(Option(
                         key=f"strike:{method}:{victim.name}",
                         kind="strike",
                         label=f"Kill {_last(victim.name)} with {with_what}",
-                        forecast=f"~{int(chance*100)}% to kill{mark}; {seen}.",
+                        forecast=(f"The odds are {self._margin_label(margin)}"
+                                  f"{mark}; {seen}."),
                         victim=victim.name, method=method, weapon=weapon,
-                        success_chance=chance, suspicion_risk=risk,
-                        witnessed=bool(witnesses),
+                        margin=margin, will_succeed=(margin >= 1),
+                        suspicion_risk=risk, witnessed=bool(witnesses),
                         is_target=(victim.name == actor.target)))
 
         # Arm yourself.
@@ -324,14 +356,14 @@ class Game:
     def _resolve_attempt(self, attacker: Character, target: Character,
                          method: str, weapon: str | None,
                          witnessed: bool) -> None:
-        chance = self._success_chance(attacker, target, method, weapon)
+        margin = self._attack_margin(attacker, target, method, weapon)
         room = self.mansion.room(attacker.room)
         weapon_name = weapon if method == "violence" else "a doctored glass"
         onlookers = [o for o in self._in_room(attacker.room, exclude=attacker.name)
                      if o is not target]
 
-        if self.rng.random() <= chance:
-            # A kill -- the day's one death.
+        if margin >= 1:
+            # A kill -- the day's one death. Pre-determined by the margin.
             target.alive = False
             self.mansion.room(target.room).occupants.remove(target.name)
             room.bodies.append(target.name)
@@ -343,10 +375,12 @@ class Game:
 
             if witnessed:
                 attacker.suspicion += 5
-            trace = 0.6 if method == "violence" else 0.25
-            if self.rng.random() < trace:
-                attacker.suspicion += 3
-            attacker.suspicion += 1
+            # Trace left behind is deterministic: violence is messy, poison is
+            # quiet, and a skilled sneak leaves less of either.
+            trace = 3 if method == "violence" else 1
+            if attacker.skill("stealth") >= 4:
+                trace -= 1
+            attacker.suspicion += max(0, trace) + 1
 
             herring = self._red_herring(attacker, target)
             death = Death(self.day, target.name, attacker.name, attacker.room,
@@ -381,23 +415,29 @@ class Game:
     def _flee(self, actor: Character, from_whom: Character) -> None:
         exits = self.mansion.neighbors(actor.room,
                                        knows_passages=self._knows_passages(actor))
-        dest = max(exits, key=lambda d: (len(self._in_room(d)), self.rng.random()))
+        # Deterministic: run toward the most crowded room (safety in witnesses);
+        # ties broken by room name so the same corner always plays out the same.
+        dest = max(exits, key=lambda d: (len(self._in_room(d)), d))
         self._move(actor, dest, secret=False)
         self._log(type="flee", actor=actor.name, from_whom=from_whom.name,
                   to=dest)
+
+    _HERRINGS = [
+        "{patsy}'s handkerchief, dropped by the body",
+        "a thread of fabric matching {patsy}'s coat",
+        "{patsy} was heard quarrelling with the victim at dinner",
+        "muddy footprints leading out into the drowned garden",
+        "the grandfather clock stopped at the very minute of death",
+    ]
 
     def _red_herring(self, attacker: Character, victim: Character) -> str:
         pool = [c for c in self._living() if c not in (attacker, victim)]
         if not pool:
             return "an unlatched window and the storm howling through it"
-        patsy = _last(self.rng.choice(pool).name)
-        return self.rng.choice([
-            f"{patsy}'s handkerchief, dropped by the body",
-            f"a thread of fabric matching {patsy}'s coat",
-            f"{patsy} was heard quarrelling with the victim at dinner",
-            "muddy footprints leading out into the drowned garden",
-            "the grandfather clock stopped at the very minute of death",
-        ])
+        # Deterministic pick: rotate by the day so successive murders point
+        # different ways, but always the same way for the same murder.
+        patsy = _last(pool[self.day % len(pool)].name)
+        return self._HERRINGS[self.day % len(self._HERRINGS)].format(patsy=patsy)
 
     # -- night: exposure + memory ----------------------------------------
     def _resolve_exposure(self) -> None:
@@ -421,8 +461,10 @@ class Game:
                   suspicion=culprit.suspicion, kills=list(culprit.kills))
 
     def _decay_suspicion(self) -> None:
+        # Memory cools by a fixed step each night -- deterministic, so the same
+        # night always reaches the same pitch of suspicion.
         for c in self._living():
-            if c.suspicion > 0 and self.rng.random() < 0.4:
+            if c.suspicion > 0:
                 c.suspicion -= 1
 
     def _remember(self, owner: str, salience: int, kind: str, **fields) -> None:
@@ -438,8 +480,10 @@ class Game:
             self._log(type="daybreak", day=self.day,
                       survivors=[c.name for c in self._living()])
             for _ in range(self.turns_per_day):
-                order = self._living()
-                self.rng.shuffle(order)
+                # Fixed initiative order every day -> a stable, replayable night.
+                living = {c.name for c in self._living()}
+                order = [self.by_name[n] for n in self.initiative
+                         if n in living]
                 for actor in order:
                     if len(self._living()) <= 1:
                         break
@@ -473,7 +517,8 @@ class Game:
         def score(c: Character):
             avenged = 1 if c.target in [d.victim for d in self.deaths
                                         if d.culprit == c.name] else 0
-            return (avenged, len(c.kills), -c.suspicion, self.rng.random())
+            # Deterministic tie-break by name so a draw always resolves the same.
+            return (avenged, len(c.kills), -c.suspicion, c.name)
         best = max(living, key=score)
         names = ", ".join(c.name for c in living)
         verdict = (f"The storm breaks with {len(living)} still at large "
@@ -490,7 +535,3 @@ class Game:
     def _log(self, **event) -> None:
         event["day"] = self.day
         self.events.append(event)
-
-
-def _clamp(x: float, lo: float, hi: float) -> float:
-    return max(lo, min(hi, x))

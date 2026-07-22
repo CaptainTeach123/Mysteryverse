@@ -79,6 +79,19 @@ A turn looks like this:
 Names are matched loosely — `vell`, `Dr. Vell`, and `Adrian Vell` all find the
 doctor.
 
+## Everything is pre-determined
+
+The night is a **fixed gamebook, not a live simulation**. There is no randomness
+at play-time: whether a strike lands is decided purely by the attacker's margin
+over their victim (skills + weapon + circumstance), so the *same choice in the
+same situation always resolves the same way*. Run the canonical night twice and
+you get an identical story, down to the event log.
+
+The practical upshot: **the whole game is plain rules with no model calls.** It
+can run entirely in a browser with zero server and zero AI cost, no matter how
+many people play. A `--seed` only permutes the guests' turn order once at setup
+(pick a different fixed "book"); it never touches a single outcome.
+
 ## How the agents think (the choose-your-own-adventure core)
 
 On any guest's turn the engine computes **every option open to them** and a
