@@ -287,12 +287,15 @@
         <span class="lab">${dead ? "† " : ""}Accuse ${esc(shortName(c))}</span>
         <span class="fc">${esc(c.title)}${dead ? " — already dead" : ""}</span></button>`;
     }).join("");
+    const have = G.pillars().size;
+    const warn = have >= 3
+      ? `<div class="accuse-note ok"><b>You have all three pillars</b> — means, motive, and opportunity. Name the right person now and the case will hold. But name the <i>wrong</i> one and the real killer walks free, and knows you were close.</div>`
+      : `<div class="accuse-note danger"><b>⚠ You have only ${have} of 3 pillars.</b> Accuse now and — <b>even if you are right</b> — you cannot prove it: the killer will <b>walk free</b>, forewarned that you are onto them, and you will not get a second chance. Suspicion is not evidence.</div>`;
     show(`
       <div class="section-head"><h2>Name the Killer</h2>
         <button class="iconbtn" id="back" type="button">Not yet</button></div>
-      <p style="max-width:64ch;margin-top:-6px">This is the one move you cannot take back. Name the
-        wrong person, or the right person without the whole case behind you, and it is over. You
-        have <b>${G.pillars().size} of 3</b> pillars. Choose.</p>
+      ${warn}
+      <p style="max-width:64ch">This is the one move you cannot take back. Choose.</p>
       <div class="choices">${cards}</div>`);
     on("back", renderDay);
     app.querySelectorAll("[data-name]").forEach((b) =>
