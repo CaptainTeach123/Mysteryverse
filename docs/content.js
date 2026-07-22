@@ -150,6 +150,8 @@
     const here = game.inRoom(player.room, player.name);
     const lines = [];
     lines.push(`${cap(the(player.room))}. ${room.description}`);
+    const atmo = MV.story && MV.story.place(player.room, game, player);
+    if (atmo) lines.push(atmo);
     if (!subject) {
       if (here.length) lines.push(`Only ${orList(here.map((c) => last(c.name)))} drift at the edges of the room, intent on their own business.`);
       else lines.push("The room is empty, and for a moment the storm is the only company you have.");

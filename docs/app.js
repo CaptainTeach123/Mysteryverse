@@ -55,7 +55,12 @@
         the one guest you came to kill; <b>your mark can die by no hand but yours</b>. Who has
         come for <i>you</i>, though, you must find out — from an attempt on your life, a
         confession, or a page of someone's diary. To win: outlive them all, and be the one who
-        strikes your mark down. Nothing here is random.</p>`);
+        strikes your mark down. Nothing here is random.</p>
+      <p style="max-width:64ch">An eighth presence keeps the record: <b>the Chronicler</b>,
+        who is no one in the story and everyone's witness. Each morning she sets the scene —
+        the storm, the house, the dwindling company — in the manner of every closed-circle
+        mystery ever told. What each guest then writes at nightfall is drawn from what they
+        actually did, saw, and survived, coloured by the kind of soul they are.</p>`);
     document.getElementById("toGallery").onclick = gallery;
     document.getElementById("toWatch").onclick = () => watch();
   }
@@ -323,20 +328,13 @@
   }
 
   function composeNight(intent, chosen, subject, recap) {
-    const n = C.NARR[playerName];
-    const out = [];
-    out.push({ dh: `${T.VOICES[playerName].header} — night of the ${T.ordinal(game.day)} day` });
-    out.push({ op: T.VOICES[playerName].opener });
-    // the day's scene, in the player's voice
-    recap.forEach((r) => out.push({ p: r }));
-    // dispatches on today's dead
-    const today = game.deaths.filter((d) => d.day === game.day && d.victim !== (subject && chosen && chosen.kind === "strike" ? subject.name : null));
-    const allToday = game.deaths.filter((d) => d.day === game.day);
-    allToday.forEach((d) => {
-      if (chosen && chosen.kind === "strike" && d.culprit === playerName && d.victim === subject.name) return; // already narrated in recap
-      out.push({ death: C.deathDispatch(d, { known: deathKnown(d), viewer: playerName }) });
-    });
-    // life in the walls
+    // Death dispatches for anyone who fell today — minus the one you narrated
+    // yourself, if you were the hand behind it.
+    const deathLines = game.deaths.filter((d) => d.day === game.day)
+      .filter((d) => !(chosen && chosen.kind === "strike" && d.culprit === playerName && subject && d.victim === subject.name))
+      .map((d) => C.deathDispatch(d, { known: deathKnown(d), viewer: playerName }));
+    // The night, composed out of the day you actually had and how it left you.
+    const out = MV.story.reflect(me, game, game.day, recap, deathLines);
     const vig = C.vignette(game, me);
     if (vig) out.push({ mv: vig });
     return out;
@@ -360,7 +358,11 @@
       <div class="stage">
         <div>
           <div class="section-head"><h2>Day ${game.day}</h2></div>
-          <p class="daymono">${esc(dayOpener())}</p>
+          <div class="chronicler">
+            <div class="byline">The Chronicler</div>
+            <p>${esc(MV.story.morning(game))}</p>
+          </div>
+          ${finaleHint()}
           <div class="choices"><div class="prompt">How do you spend the day?</div>
             ${intents.map((it, i) => `<button class="choice intent" data-i="${i}" type="button">
               <span class="lab">${esc(it.title)}</span>
@@ -422,13 +424,11 @@
     return wait();
   }
 
-  function dayOpener() {
-    const alive = game.living().length;
+  function finaleHint() {
     const mark = game.byName[me.target];
-    if (alive === 2 && mark.alive && !mark.caught)
-      return `Only you and ${last(mark.name)} are left breathing in Ravenhollow. This is the last morning — and the last chance to make the night yours.`;
-    if (game.day === 1) return "The first grey morning. Seven of you at breakfast, and the storm at every window. No one says what everyone is thinking.";
-    return `Morning, and ${alive} of you still sit down to a cold breakfast. The empty chairs are not discussed.`;
+    if (game.living().length === 2 && mark.alive && !mark.caught)
+      return `<p class="daymono"><b>Only you and ${esc(last(mark.name))} are left.</b> This is the last morning — and the last chance to make the night yours.</p>`;
+    return "";
   }
 
   function sidebar() {

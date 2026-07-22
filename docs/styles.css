@@ -206,6 +206,12 @@ h1, h2, h3, .display, .label, button { font-family: var(--display); }
 .letter .sig { text-align: right; font-style: italic; color: var(--text-dim); }
 .letter hr { border: none; border-top: 1px dashed var(--border); margin: 16px 0; }
 
+/* the Chronicler — the eighth agent, the narrating voice of the house */
+.chronicler { border-left: 3px solid var(--accent); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 7%, transparent), transparent 60%); padding: 12px 18px 8px; margin: 4px 0 16px; border-radius: 0 3px 3px 0; }
+.chronicler .byline { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.62rem; color: var(--accent); margin-bottom: 6px; }
+.chronicler p { margin: 0; font-size: 1.06rem; line-height: 1.72; font-style: italic; color: var(--text); }
+.chronicler p::first-letter { font-size: 2.4em; line-height: 0.9; float: left; padding: 4px 8px 0 0; font-family: var(--display); font-weight: 800; color: var(--accent); font-style: normal; }
+
 /* intents + scene prose + dialogue */
 .daymono { font-style: italic; color: var(--text-dim); max-width: 60ch; margin: -4px 0 16px; }
 .choice.intent .fc { font-style: italic; }
