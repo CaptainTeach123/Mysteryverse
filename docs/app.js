@@ -61,6 +61,7 @@
       const tag = w.tagline || (w.cast.length + " suspects · one killer");
       return `<a class="casecard" href="?world=${esc(w.id)}" style="--acc:${COVERS[i % COVERS.length]}">
         <div class="casecover">
+          ${w.coverImage ? `<img class="coverthumb" src="${esc(w.coverImage)}" alt="" onerror="this.remove()"/><div class="coverscrim"></div>` : ""}
           <div class="casenum">Case Nº ${String(i + 1).padStart(2, "0")}</div>
           <div class="casename">${esc(cap(w.locale.name))}</div>
         </div>
@@ -85,9 +86,9 @@
     document.querySelector(".brand").textContent = localeName();
     show(`
       <section class="hero">
-        <div class="art">${MV.world.coverImage
-          ? `<img class="coverimg" src="${esc(MV.world.coverImage)}" alt="${esc(cap(localeName()))}"/>`
-          : A.cover(MV.world.cover)}</div>
+        <div class="art">${A.cover(MV.world.cover)}${MV.world.coverImage
+          ? `<img class="coverimg" src="${esc(MV.world.coverImage)}" alt="${esc(cap(localeName()))}" onerror="this.remove()"/>`
+          : ""}</div>
         <div class="hero-copy">
           <div class="kicker">A Whodunit</div>
           <h1>${esc(cap(localeName()))}</h1>

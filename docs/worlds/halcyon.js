@@ -10,6 +10,7 @@
     tagline: "A gilded motor-yacht, a storm off the cape, and a killer in her crew who knows every plate of her.",
     mode: "whodunit",
     cover: "yacht",
+    coverImage: "img/halcyon.jpg",   // drop your painting here; the SVG yacht is the fallback
     locale: {
       name: "the Halcyon",
       start: "Main Saloon",

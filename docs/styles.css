@@ -76,8 +76,9 @@ h1, h2, h3, .display, .label, button { font-family: var(--display); }
 
 /* hero */
 .hero { position: relative; border: 1px solid var(--border); border-radius: 3px; overflow: hidden; box-shadow: 0 20px 60px -30px var(--shadow); }
-.hero .art { display: block; width: 100%; height: 460px; }
+.hero .art { display: block; position: relative; width: 100%; height: 460px; }
 .hero .art svg { width: 100%; height: 100%; display: block; }
+.hero .art .coverimg { position: absolute; inset: 0; }
 .hero .art .coverimg { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hero-copy { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 28px 20px; background: linear-gradient(180deg, rgba(8,6,7,0.15), rgba(8,6,7,0.5)); }
 .hero-copy::before { content: ""; position: absolute; inset: 0; background: radial-gradient(58% 62% at 50% 46%, rgba(6,5,6,0.74), rgba(6,5,6,0) 72%); pointer-events: none; }
@@ -231,9 +232,12 @@ body.on-splash .topbar { display: none; }
 .cases { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 8px; }
 .casecard { display: flex; flex-direction: column; text-decoration: none; color: var(--text); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; background: var(--surface); box-shadow: 0 12px 34px -24px var(--shadow); transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
 .casecard:hover { transform: translateY(-3px); border-color: var(--acc); box-shadow: 0 18px 40px -22px var(--shadow); }
-.casecover { position: relative; padding: 26px 20px 22px; background:
+.casecover { position: relative; overflow: hidden; padding: 26px 20px 22px; background:
     radial-gradient(120% 130% at 50% -20%, color-mix(in srgb, var(--acc) 55%, #0c0a09), #0c0a09);
-  border-bottom: 2px solid var(--acc); }
+  border-bottom: 2px solid var(--acc); min-height: 118px; }
+.casecover .coverthumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
+.casecover .coverscrim { position: absolute; inset: 0; background: linear-gradient(to top, rgba(8,6,6,0.9), rgba(8,6,6,0.22)); z-index: 1; }
+.casecover .casenum, .casecover .casename { position: relative; z-index: 2; }
 .casecover .casenum { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.22em; font-size: 0.6rem; color: color-mix(in srgb, var(--acc) 60%, #e7dcc4); }
 .casecover .casename { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; font-size: 1.5rem; line-height: 1.05; color: #f2e7d2; margin-top: 8px; text-wrap: balance; }
 .casebody { padding: 15px 18px 18px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
