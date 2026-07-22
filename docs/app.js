@@ -30,6 +30,26 @@
   const localeName = () => MV.world.locale.name;
   const on = (id, fn) => { const el = document.getElementById(id); if (el) el.onclick = fn; };
 
+  // The late-night-bar backdrop for the collection page: a fixed layer behind
+  // everything, with a scrim and drifting cigarette smoke. Lives on <body> (not
+  // in #app) so it sits under the cards rather than over them.
+  function setBar(on) {
+    let el = document.getElementById("barbg");
+    if (on) {
+      document.body.classList.add("on-cases");
+      if (!el) {
+        el = document.createElement("div");
+        el.id = "barbg"; el.className = "barbg"; el.setAttribute("aria-hidden", "true");
+        el.innerHTML = `<div class="barbg-img has-img"></div><div class="barbg-scrim"></div>`
+          + `<div class="barbg-smoke"><i></i><i></i><i></i><i></i></div>`;
+        document.body.appendChild(el);
+      }
+    } else {
+      document.body.classList.remove("on-cases");
+      if (el) el.remove();
+    }
+  }
+
   // The collection's cover text — edit freely.
   const COLLECTION = { title: "The Mysteries", subtitle: "A cabinet of closed-circle murders" };
   const FLOURISH = `<svg viewBox="0 0 200 24" width="176" height="21" aria-hidden="true"><g fill="none" stroke="#c9a24a" stroke-width="1.5"><path d="M12 12 C 52 2, 72 2, 94 12"/><path d="M188 12 C 148 22, 128 22, 106 12"/></g><circle cx="100" cy="12" r="3.2" fill="#c9a24a"/></svg>`;
@@ -39,6 +59,7 @@
   //  LANDING — the splash, then the cabinet of cases
   // =====================================================================
   function splash() {
+    setBar(false);
     document.body.classList.add("on-splash");
     show(`
       <div class="splash">
@@ -55,6 +76,7 @@
 
   function cases() {
     document.body.classList.remove("on-splash");
+    setBar(true);
     document.querySelector(".brand").textContent = COLLECTION.title;
     const worlds = Object.values(MV.WORLDS);
     const cards = worlds.map((w, i) => {
@@ -72,7 +94,7 @@
     show(`
       <div class="section-head"><h2>${esc(COLLECTION.title)}</h2>
         <button class="iconbtn" id="back" type="button">← Cover</button></div>
-      <p style="max-width:64ch;margin-top:-6px">${esc(COLLECTION.subtitle)}. Each is its own case, on
+      <p class="intro" style="max-width:64ch;margin-top:-6px">${esc(COLLECTION.subtitle)}. Each is its own case, on
         its own page — pick one, and find the killer before the last dawn.</p>
       <div class="cases">${cards}</div>`);
     on("back", splash);
@@ -83,6 +105,7 @@
   // =====================================================================
   function hero() {
     document.body.classList.remove("on-splash");
+    setBar(false);
     document.querySelector(".brand").textContent = localeName();
     show(`
       <section class="hero">
