@@ -51,6 +51,7 @@
           </div>
         </div>
       </section>
+      ${worldbar()}
       <div class="section-head"><h2>How the investigation works</h2></div>
       <p style="max-width:64ch">Each day you make one move — <b>examine</b> a scene, <b>search</b>
         a room, or <b>interview</b> a guest — and add what you find to your case file. You are
@@ -60,6 +61,24 @@
         cried out without proof is the last mistake you'll make. Nothing here is random —
         the truth is fixed, and findable, if you're quick and careful enough.</p>`);
     on("begin", invitation);
+    const sel = document.getElementById("worldpick");
+    if (sel) sel.onchange = () => {
+      MV.useWorld(sel.value);
+      try { history.replaceState(null, "", location.pathname + "?world=" + encodeURIComponent(sel.value)); } catch (e) { /* file:// */ }
+      hero();
+    };
+  }
+
+  function worldbar() {
+    const worlds = Object.values(MV.WORLDS);
+    if (worlds.length < 2) return "";
+    const opts = worlds.map((w) =>
+      `<option value="${esc(w.id)}" ${w.id === MV.world.id ? "selected" : ""}>${esc(cap(w.locale.name))}</option>`).join("");
+    return `<div class="worldbar">
+      <label for="worldpick">Choose your mystery</label>
+      <select id="worldpick" aria-label="Choose your mystery">${opts}</select>
+      <span class="worldcount">${worlds.length} cases and counting</span>
+    </div>`;
   }
 
   // =====================================================================

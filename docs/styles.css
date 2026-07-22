@@ -206,6 +206,14 @@ h1, h2, h3, .display, .label, button { font-family: var(--display); }
 .letter .sig { text-align: right; font-style: italic; color: var(--text-dim); }
 .letter hr { border: none; border-top: 1px dashed var(--border); margin: 16px 0; }
 
+/* mystery picker */
+.worldbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 22px 0 4px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 3px; background: var(--surface); }
+.worldbar label { font-family: var(--display); text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.68rem; color: var(--accent); }
+.worldbar select { font-family: var(--serif); font-size: 1rem; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 2px; padding: 8px 12px; cursor: pointer; min-width: 220px; }
+.worldbar select:hover { border-color: var(--accent); }
+.worldbar select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.worldbar .worldcount { margin-left: auto; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.62rem; color: var(--text-dim); }
+
 /* whodunit: pillars + evidence */
 .pillars { display: flex; gap: 6px; }
 .pill { flex: 1; text-align: center; font-family: var(--display); text-transform: uppercase; letter-spacing: 0.08em; font-size: 0.58rem; padding: 6px 3px; border: 1px solid var(--border); border-radius: 2px; color: var(--text-dim); }
