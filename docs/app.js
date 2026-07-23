@@ -128,10 +128,10 @@
         <div class="hero-copy">
           <div class="kicker">A Whodunit</div>
           <h1>${esc(cap(localeName()))}</h1>
-          <p class="tag">A storm has cut this place off from the world, and one of your
+          <p class="tag">${esc(MV.world.blurb || `A storm has cut this place off from the world, and one of your
             fellow guests is quietly murdering the rest. You are the reporter who came to
-            cover the gathering — and now has until the last dawn to prove who did it, before
-            the story files itself under your own name.</p>
+            cover the gathering — and you have until the last dawn to prove who did it, before
+            the story files itself under your own name.`)}</p>
           <div class="btnrow">
             <button class="btn" id="begin" type="button">Take the assignment</button>
             <a class="btn ghost" href="${esc(location.pathname)}" id="allcases">← All mysteries</a>
@@ -156,6 +156,22 @@
     const j = MV.world.journalist;
     const place = cap(localeName());
     const given = j.name.replace(/^(Dr|Lady|Miss|Colonel|Mother|Mr|Mrs|Sir|Lord|Countess|Count|Conductor|Sister|Father|Captain)\.?\s+/, "");
+    // A world may write its own assignment letter (world.assignment); the stock
+    // letter stands in for worlds that don't.
+    const asg = MV.world.assignment || {
+      dear: `Dear ${given},`,
+      body: [`Your editor has done you a great favour, or a terrible one. You are to travel to
+        ${place} and file a colour piece on the gathering there — a reunion of sorts,
+        of people who all, it is said, share a certain history.`],
+      sig: "— the assignment desk",
+      arrival: `You arrive to find the bridge gone and the telephone dead — and a certainty
+        settling over the table with the rain: before the week is out, someone here
+        will not come down to breakfast.`,
+      purpose: `You are ${j.name}, ${j.title}. One of these people is
+        killing the others, one a night, and means to leave no one alive to tell it. You have
+        until the storm lifts to prove which of them it is — with means, motive, and
+        opportunity all three — and live to print it.`,
+    };
     show(`
       <div class="env-stage">
         <div class="envelope" id="env">
@@ -164,19 +180,12 @@
           <div class="seal" aria-hidden="true">${starburst()}</div>
           <div class="letter">
             <div class="letterhead">${esc(place)}</div>
-            <p class="dear">Dear ${esc(given)},</p>
-            <p>Your editor has done you a great favour, or a terrible one. You are to travel to
-              ${esc(place)} and file a colour piece on the gathering there — a reunion of sorts,
-              of people who all, it is said, share a certain history.</p>
-            <p class="sig">— the assignment desk</p>
+            <p class="dear">${esc(asg.dear)}</p>
+            ${asg.body.map((p) => `<p>${esc(p)}</p>`).join("")}
+            <p class="sig">${esc(asg.sig)}</p>
             <hr/>
-            <p><i>You arrive to find the bridge gone and the telephone dead. And on the first
-              night, a guest does not come down to breakfast — not that morning, nor any morning
-              after.</i></p>
-            <p class="purpose">You are ${esc(j.name)}, ${esc(j.title)}. One of these people is
-              killing the others, one a night, and means to leave no one alive to tell it. You have
-              until the storm lifts to prove which of them it is — with means, motive, and
-              opportunity all three — and live to print it.</p>
+            <p><i>${esc(asg.arrival)}</i></p>
+            <p class="purpose">${esc(asg.purpose)}</p>
             <div class="btnrow" style="margin-top:18px"><button class="btn" id="enter" type="button">Take out your notebook</button></div>
           </div>
         </div>
@@ -207,7 +216,7 @@
         <button class="iconbtn" id="back" type="button">Back</button></div>
       <p style="max-width:64ch;margin-top:-6px">Every one of them has a reason to be nervous, and
         a secret worth hiding. One of them is a murderer. Your job is to find out which — before
-        the house runs out of guests, or you run out of nights.</p>
+        the ${esc(MV.world.placeNoun || "house")} runs out of guests, or you run out of nights.</p>
       <div class="gallery">${cards}</div>
       <div class="btnrow" style="margin-top:20px"><button class="btn" id="start" type="button">Begin the first day</button></div>`);
     on("back", hero);
@@ -240,9 +249,10 @@
 
   function renderDay() {
     if (G.status !== "playing") return renderEnd();
+    const roomRefUI = (r) => (/^the\s/i.test(r) ? r : `the ${r}`);
     const news = G.latestDeath()
-      ? `<p class="daymono"><b>${esc(shortName(G.byName[G.latestDeath().victim]))} is dead</b> — found in the ${esc(G.latestDeath().room)}. The company is one fewer, and no one meets anyone's eye.</p>`
-      : `<p class="daymono">No one has died yet. But the bridge is gone, the doors are locked against the storm, and something in the house has already decided how the week will end.</p>`;
+      ? `<p class="daymono"><b>${esc(shortName(G.byName[G.latestDeath().victim]))} is dead</b> — found in ${esc(roomRefUI(G.latestDeath().room))}. The company is one fewer, and no one meets anyone's eye.</p>`
+      : `<p class="daymono">${esc(MV.world.dayOneNews || "No one has died yet. But the bridge is gone, the doors are locked against the storm, and something in the house has already decided how the week will end.")}</p>`;
     const approaches = G.approaches().map((a) =>
       `<button class="choice intent" data-k="${a.key}" type="button">
         <span class="lab">${esc(a.label)}</span><span class="fc">${esc(a.blurb)}</span></button>`).join("");
@@ -250,7 +260,7 @@
       <div class="stage">
         <div>
           <div class="section-head"><h2>Day ${G.day}</h2></div>
-          <div class="chronicler"><div class="byline">The Chronicler</div><p>${esc(S.morning(G))}</p></div>
+          <div class="chronicler"><div class="byline">${esc(MV.world.chroniclerByline || "The Chronicler")}</div><p>${esc(S.morning(G))}</p></div>
           ${news}
           <div class="choices"><div class="prompt">How do you spend the day?</div>${approaches}</div>
         </div>
@@ -373,7 +383,8 @@
   // ---- the ending -------------------------------------------------------
   function renderEnd() {
     const r = G.result || { tier: "defeat", title: "The End", text: "" };
-    const dead = G.deaths.map((d) => `<div class="dead-rec"><div class="d1">† ${esc(shortName(G.byName[d.victim]))}</div><div class="d2">Killed in the ${esc(d.room)}, night ${d.day}.</div></div>`).join("");
+    const roomRefUI = (r) => (/^the\s/i.test(r) ? r : `the ${r}`);
+    const dead = G.deaths.map((d) => `<div class="dead-rec"><div class="d1">† ${esc(shortName(G.byName[d.victim]))}</div><div class="d2">Killed in ${esc(roomRefUI(d.room))}, night ${d.day}.</div></div>`).join("");
     show(`
       <div class="section-head"><h2>${esc(r.title)}</h2>
         <button class="iconbtn" id="again" type="button">New assignment</button></div>

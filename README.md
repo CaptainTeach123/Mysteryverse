@@ -130,8 +130,31 @@ of cases"), and each mystery lives on its own URL (`?world=id`).
 Optional world fields for presentation:
 - `tagline` — the one-liner on the landing card.
 - `cover` — the title-card scene: `"manor"` (default), `"yacht"`, or `"moon"`.
-- `coverImage` — a URL/path to your own hero image (e.g. `"img/halcyon.jpg"`);
+- `coverImage` — a URL/path to your own hero image (e.g. `"img/halcyon.png"`);
   drop the file next to the page and it's used instead of the generated scene.
+- `displayFont` — a per-world display face (e.g. `"Poiret One"`) for the case's
+  own typographic identity.
+- a cast member may carry `portrait: "img/portraits/name.png"` — a painted
+  portrait shown over the generated SVG face (which remains the fallback).
+
+Optional world fields for **voice** — every stock line can be replaced, so a
+world can be narrated by anyone (the Halcyon is told first-person by its
+journalist; see [`docs/worlds/halcyon.js`](docs/worlds/halcyon.js) for the
+worked example of all of these):
+- `blurb` — the hero-page pitch; `placeNoun` — "house"/"ship"/"train" in stock
+  UI copy; `dayOneNews` — the Day-1 bulletin; `chroniclerByline` — who narrates
+  the mornings (e.g. `"From the notebook of Nella Frost"`).
+- `assignment` — the opening letter: `{ dear, body: [...], sig, arrival, purpose }`.
+- `locale.chronicler` — the Chronicler's pools: `morningOpen`, `storm`
+  (`early/mid/late`), `house`, `foreshadow`, `firstMorning`, `afterDeath`,
+  `noDeath`, `dusk`, `duskLast` (placeholders `{nth}`, `{alive}`, `{before}`).
+- `mystery.deathRooms` — stage each night's murder (in order) instead of the
+  default room rotation, so scenes match the clues.
+- `mystery.prose` — investigation lines and endings: `searchLabel`,
+  `searchBlurb`, `observeLabel`, `observeBlurb`, `searchEmpty` (`{room}`),
+  `killerInterview`, `heatFar`, `heatNear`, `observe`, and
+  `endings.{win,unproven,wrong,heatDeath,empty,lastDawn}` as `{ title, text }`
+  (placeholders `{killer}`, `{accused}`, `{truth}`).
 
 It is **pure static files** — no server, no build step, **no AI calls at
 run-time** — so it runs entirely in the visitor's browser and costs nothing to

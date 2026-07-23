@@ -80,13 +80,18 @@
     parts.push(pick(storm, game.day));
     parts.push(pick(house, game.day + 1));
     if (game.day === 1) {
-      parts.push("Seven guests had crossed the bridge before the water rose and took it. Seven came down to breakfast that first cold morning — and every one of them was lying about why they had come.");
+      parts.push(O.firstMorning
+        || "Seven guests had crossed the bridge before the water rose and took it. Seven came down to breakfast that first cold morning — and every one of them was lying about why they had come.");
     } else {
       const yest = game.deaths.filter((d) => d.day === game.day - 1);
       if (yest.length) {
-        parts.push(`At breakfast there were ${alive} where the evening before there had been ${alive + 1}. No one looked at the empty chair; no one could quite look away from it, either.`);
+        parts.push((O.afterDeath
+          || `At breakfast there were {alive} where the evening before there had been {before}. No one looked at the empty chair; no one could quite look away from it, either.`)
+          .replace("{alive}", alive).replace("{before}", alive + 1));
       } else {
-        parts.push(`${alive} of them still came down to breakfast, and sat a little further apart than the day before.`);
+        parts.push((O.noDeath
+          || `{alive} of them still came down to breakfast, and sat a little further apart than the day before.`)
+          .replace("{alive}", alive));
       }
     }
     parts.push(pick(O.foreshadow || FORESHADOW, game.day));
@@ -96,8 +101,10 @@
   function chroniclerClose(game) {
     const alive = game.living().length;
     const place = (MV.world.locale && MV.world.locale.name) || "the house";
-    if (alive <= 1) return `And then there was one. The storm broke over an empty house, and ${place} kept its counsel, as great houses do.`;
-    return `Night came down black and total. ${alive} still drew breath under that roof — and not one of them believed they would be the one to fall.`;
+    const O = (MV.world.locale && MV.world.locale.chronicler) || {};
+    if (alive <= 1) return O.duskLast || `And then there was one. The storm broke over an empty house, and ${place} kept its counsel, as great houses do.`;
+    return (O.dusk || `Night came down black and total. {alive} still drew breath under that roof — and not one of them believed they would be the one to fall.`)
+      .replace("{alive}", alive);
   }
 
   // =====================================================================
